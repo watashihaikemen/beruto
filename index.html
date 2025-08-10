@@ -161,6 +161,10 @@
                 select.appendChild(option);
             }
 
+            // ▼▼▼ 修正箇所 ▼▼▼
+            select.value = "効果なし"; // プルダウンの初期値を「効果なし」に設定
+            // ▲▲▲ 修正箇所 ▲▲▲
+
             select.addEventListener('change', updateAndSort);
             div.appendChild(label);
             div.appendChild(select);
@@ -279,5 +283,4 @@
     });
   </script>
 </body>
-
 </html>
