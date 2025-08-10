@@ -8,6 +8,14 @@
     h1 { text-align: center; color: #333; }
     .effect-block { margin-bottom: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; }
     label { font-weight: bold; display: block; margin-bottom: 5px; color: #555; }
+    .effect-search {
+        width: 100%;
+        padding: 6px;
+        margin-bottom: 8px; /* selectとの間に少し余白 */
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
     select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
     #totalScore { display: none; } /* 合計点数を非表示に */
     .button-group { text-align: center; margin-top: 20px; }
@@ -100,6 +108,46 @@
         optionsFragment.appendChild(option);
     }
 
+    // NEW: Function to filter options based on search input
+    function filterOptions(searchInput, selectElement) {
+        const searchTerm = searchInput.value.toLowerCase();
+        const currentValue = selectElement.value;
+
+        selectElement.innerHTML = ''; // Clear current options
+
+        // If search term is empty, restore all options
+        if (searchTerm === '') {
+            selectElement.appendChild(optionsFragment.cloneNode(true));
+            selectElement.value = currentValue;
+            return;
+        }
+
+        let currentSelectedValueFound = false;
+        // Add filtered options
+        for (const effect in ALL_EFFECTS_DATA) {
+            if (effect.toLowerCase().includes(searchTerm)) {
+                const option = document.createElement('option');
+                option.value = effect;
+                option.textContent = effect;
+                selectElement.appendChild(option);
+                if (effect === currentValue) {
+                    currentSelectedValueFound = true;
+                }
+            }
+        }
+        
+        // If the currently selected value is not in the search results,
+        // add it to the top of the list to prevent losing the selection.
+        if (!currentSelectedValueFound && currentValue !== "効果なし") {
+            const currentOption = document.createElement('option');
+            currentOption.value = currentValue;
+            currentOption.textContent = currentValue;
+            selectElement.insertBefore(currentOption, selectElement.firstChild);
+        }
+
+        selectElement.value = currentValue; // Re-apply the selected value
+    }
+
     function createEffectSelects() {
         for (let i = 0; i < 6; i++) {
             const div = document.createElement('div');
@@ -107,13 +155,23 @@
 
             const label = document.createElement('label');
             label.textContent = `効果 ${i + 1}`;
+            
+            // ADDED: Search input for each select
+            const searchInput = document.createElement('input');
+            searchInput.type = 'text';
+            searchInput.className = 'effect-search';
+            searchInput.placeholder = '効果を検索して絞り込み...';
 
             const select = document.createElement('select');
             select.appendChild(optionsFragment.cloneNode(true));
             select.value = "効果なし";
-
+            
+            // Add event listeners
             select.addEventListener('change', updateAndSort);
+            searchInput.addEventListener('input', () => filterOptions(searchInput, select));
+
             div.appendChild(label);
+            div.appendChild(searchInput); // Add search input before select
             div.appendChild(select);
             container.appendChild(div);
         }
@@ -128,7 +186,9 @@
         let total = 0;
         selects.forEach((select, index) => {
             const newValue = currentValues[index];
-            select.value = newValue;
+            if (select.value !== newValue) {
+                 select.value = newValue;
+            }
             total += ALL_EFFECTS_DATA[newValue] || 0;
         });
 
@@ -225,6 +285,16 @@
     }
 
     function loadBelt(effects) {
+        // MODIFIED: Reset search inputs when loading a belt
+        const searchInputs = container.querySelectorAll('.effect-search');
+        searchInputs.forEach(input => {
+            if (input.value !== '') {
+                input.value = '';
+                // Manually trigger the input event to reset the corresponding select
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+        
         const selects = container.querySelectorAll('select');
         selects.forEach(select => select.value = "効果なし");
         effects.forEach((effect, index) => {
