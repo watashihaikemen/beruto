@@ -17,6 +17,13 @@
     #savedBeltsSection { margin-top: 40px; border-top: 2px solid #eee; padding-top: 20px; }
     #savedBeltsSection h2 { text-align: center; color: #333; }
     /* ▼▼▼ ここから変更 ▼▼▼ */
+    #savedBeltsCount {
+      font-size: 16px;
+      color: #666;
+      font-weight: normal;
+      margin-left: 8px;
+    }
+    /* ▲▲▲ ここまで変更 ▲▲▲ */
     .saved-belt-item {
       display: flex;
       justify-content: space-between;
@@ -34,7 +41,6 @@
       transform: translateY(-3px); /* 少し上に移動 */
       box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* 影を濃くする */
     }
-    /* ▲▲▲ ここまで変更 ▲▲▲ */
     .saved-belt-info { cursor: pointer; flex-grow: 1; }
     .saved-belt-info span { display: block; font-size: 14px; color: #666; margin-top: 4px; }
     .saved-belt-info strong { display: none; } /* 保存されたベルトの合計点数を非表示に */
@@ -55,7 +61,7 @@
   </div>
 
   <div id="savedBeltsSection">
-    <h2>保存されたベルト</h2>
+    <h2>保存されたベルト<span id="savedBeltsCount"></span></h2>
     <div class="sort-button-group">
       <button id="sortDivine">神ベルト順</button>
       <button id="sortTrash">ゴミベルト順</button>
@@ -151,6 +157,7 @@
     const sortDivineButton = document.getElementById('sortDivine');
     const sortTrashButton = document.getElementById('sortTrash');
     const savedBeltsKey = 'savedBelts';
+    const savedBeltsCountElement = document.getElementById('savedBeltsCount'); // 個数表示用の要素を取得
 
     function createEffectSelects() {
         for (let i = 0; i < 6; i++) {
@@ -241,6 +248,11 @@
         savedBeltsList.innerHTML = '';
         const savedBelts = getSavedBelts();
         
+        // ▼▼▼ ここから変更 ▼▼▼
+        // 保存されたベルトの個数を表示
+        savedBeltsCountElement.textContent = `(合計: ${savedBelts.length}個)`;
+        // ▲▲▲ ここまで変更 ▲▲▲
+
         savedBelts.forEach((effects, index) => {
             const beltItem = document.createElement('div');
             beltItem.className = 'saved-belt-item';
