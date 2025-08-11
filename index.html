@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>戦神のベルト管理ツール</title>
+  <title>戦神のベルト管理ツール (改善版)</title>
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; background-color: #f0f2f5; }
     h1 { text-align: center; color: #333; }
@@ -108,14 +108,12 @@
         optionsFragment.appendChild(option);
     }
 
-    // NEW: Function to filter options based on search input
     function filterOptions(searchInput, selectElement) {
         const searchTerm = searchInput.value.toLowerCase();
         const currentValue = selectElement.value;
 
-        selectElement.innerHTML = ''; // Clear current options
+        selectElement.innerHTML = '';
 
-        // If search term is empty, restore all options
         if (searchTerm === '') {
             selectElement.appendChild(optionsFragment.cloneNode(true));
             selectElement.value = currentValue;
@@ -123,7 +121,6 @@
         }
 
         let currentSelectedValueFound = false;
-        // Add filtered options
         for (const effect in ALL_EFFECTS_DATA) {
             if (effect.toLowerCase().includes(searchTerm)) {
                 const option = document.createElement('option');
@@ -136,8 +133,6 @@
             }
         }
         
-        // If the currently selected value is not in the search results,
-        // add it to the top of the list to prevent losing the selection.
         if (!currentSelectedValueFound && currentValue !== "効果なし") {
             const currentOption = document.createElement('option');
             currentOption.value = currentValue;
@@ -145,7 +140,7 @@
             selectElement.insertBefore(currentOption, selectElement.firstChild);
         }
 
-        selectElement.value = currentValue; // Re-apply the selected value
+        selectElement.value = currentValue;
     }
 
     function createEffectSelects() {
@@ -156,7 +151,6 @@
             const label = document.createElement('label');
             label.textContent = `効果 ${i + 1}`;
             
-            // ADDED: Search input for each select
             const searchInput = document.createElement('input');
             searchInput.type = 'text';
             searchInput.className = 'effect-search';
@@ -166,12 +160,24 @@
             select.appendChild(optionsFragment.cloneNode(true));
             select.value = "効果なし";
             
-            // Add event listeners
-            select.addEventListener('change', updateAndSort);
+            // --- ▼ここから修正▼ ---
+            // イベントリスナーを修正し、選択後のフィルター自動クリア機能を追加
+            select.addEventListener('change', () => {
+                // 選択が完了したら、このセレクトボックスに対応する検索フィルターをクリアします。
+                if (searchInput.value !== '') {
+                    searchInput.value = '';
+                    // フィルター関数を呼び出して、オプションリストを元に戻します。
+                    filterOptions(searchInput, select);
+                }
+                // 全体のソートとスコア計算を実行します。
+                updateAndSort();
+            });
+            // --- ▲ここまで修正▲ ---
+
             searchInput.addEventListener('input', () => filterOptions(searchInput, select));
 
             div.appendChild(label);
-            div.appendChild(searchInput); // Add search input before select
+            div.appendChild(searchInput);
             div.appendChild(select);
             container.appendChild(div);
         }
@@ -284,26 +290,36 @@
         });
     }
 
+    // --- ▼ここから修正▼ ---
+    // loadBelt関数を堅牢化し、読み込み時のフィルターリセットを確実に行う
     function loadBelt(effects) {
-        // MODIFIED: Reset search inputs when loading a belt
+        const selects = container.querySelectorAll('select');
         const searchInputs = container.querySelectorAll('.effect-search');
-        searchInputs.forEach(input => {
+
+        // まず全ての検索フィルターをクリアし、オプションリストをリセットします。
+        searchInputs.forEach((input, index) => {
             if (input.value !== '') {
                 input.value = '';
-                // Manually trigger the input event to reset the corresponding select
-                input.dispatchEvent(new Event('input', { bubbles: true }));
+                // 対応するselectのオプションをリセットします。
+                filterOptions(input, selects[index]);
             }
         });
         
-        const selects = container.querySelectorAll('select');
+        // 全てのselectの値を一旦「効果なし」にリセットします。
         selects.forEach(select => select.value = "効果なし");
+        
+        // 保存された効果を順番にセットします。
         effects.forEach((effect, index) => {
             if (selects[index]) {
                 selects[index].value = effect;
             }
         });
+        
+        // 最後にソートとスコア計算を実行します。
         updateAndSort();
     }
+    // --- ▲ここまで修正▲ ---
+
 
     function deleteBelt(effectsToDelete) {
         let savedBelts = getSavedBelts();
