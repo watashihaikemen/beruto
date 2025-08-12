@@ -26,7 +26,7 @@
     #savedBeltsSection h2 { text-align: center; color: #333; }
     #savedBeltsCount { font-size: 16px; color: #666; font-weight: normal; margin-left: 8px; }
     .saved-belt-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; margin-bottom: 12px; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s ease-in-out; }
-    .saved-belt-item:hover { background-color: #fcfcfc; transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .saved-belt-item:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     .saved-belt-info { cursor: pointer; flex-grow: 1; }
     /* スコアを元の通り非表示に設定 */
     .saved-belt-info strong { display: none; }
@@ -37,7 +37,7 @@
     .action-button-group button { padding: 8px 15px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; background-color: #f0f0f0; margin: 0; }
     .action-button-group button.active { background-color: #007bff; color: white; border-color: #007bff; }
 
-    /* ▼▼▼ 追加したスタイル ▼▼▼ */
+    /* ▼▼▼ 修正されたスタイル ▼▼▼ */
     /* カテゴリー別の背景色 */
     .saved-belt-item.category-front   { background-color: #ffebee; } /* 前衛職用: 薄い赤 */
     .saved-belt-item.category-mid     { background-color: #ede7f6; } /* 中衛職用: 薄い紫 */
@@ -57,7 +57,7 @@
     .saved-belt-item.category-general:hover {
         background-image: linear-gradient(100deg, #ffcdd2, #ffe0b2, #fff9c4, #c8e6c9, #bbdefb, #d1c4e9);
     }
-    /* ▲▲▲ 追加したスタイル ▲▲▲ */
+    /* ▲▲▲ 修正されたスタイル ▲▲▲ */
   </style>
 </head>
 <body>
@@ -316,7 +316,6 @@
         updateActiveButtons();
     }
 
-    // ▼▼▼ この関数を修正 ▼▼▼
     function renderSavedBelts(beltsToRender) {
         savedBeltsList.innerHTML = '';
         const totalSavedCount = getSavedBelts().length;
@@ -371,7 +370,6 @@
             savedBeltsList.appendChild(beltItem);
         });
     }
-    // ▲▲▲ 修正はここまで ▲▲▲
 
     function updateActiveButtons() {
         filterButtonGroup.querySelectorAll('button').forEach(button => {
