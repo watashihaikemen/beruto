@@ -28,7 +28,7 @@
     .saved-belt-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; margin-bottom: 12px; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s ease-in-out; }
     .saved-belt-item:hover { background-color: #fcfcfc; transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     .saved-belt-info { cursor: pointer; flex-grow: 1; }
-    /* ▼変更▼ スコアを元の通り非表示に設定 */
+    /* スコアを元の通り非表示に設定 */
     .saved-belt-info strong { display: none; }
     .saved-belt-info span { display: block; font-size: 14px; color: #666; margin-top: 4px; }
     .saved-belt-delete { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
@@ -69,43 +69,44 @@
   </div>
 
   <script>
-    // ▼ここから修正▼
-    // データ構造の統合と一元化
+    const DATA_VERSION = '1.1';
+    const SAVED_BELTS_KEY = 'savedBelts';
+    const DATA_VERSION_KEY = 'savedBeltsVersion';
+
     function createAllEffectsData() {
-      const effectsData = {
-        "効果なし": -30, "こうげき力+15": 15, "こうげき力+20": 21.8, "こうげき力+25": 22,
-        "こうげき魔力と回復魔力+30": 14.9, "こうげき魔力と回復魔力+40": 21.7, "こうげき魔力と回復魔力+50": 21.9,
-        "会心率と呪文暴走率+1.0%": 14.8, "会心率と呪文暴走率+1.5%": 21.7, "会心率と呪文暴走率+2.0%": 21.8,
-        "盾装備で開戦時○○系": 0.05
-      };
-      const weaponEffects = { "片手剣": 18, "両手剣": 17.9, "短剣": 17.8, "スティック": 17.7, "両手杖": 17.6, "ヤリ": 17.5, "オノ": 17.4, "棍": 17.3, "ツメ": 17.2, "ムチ": 17.1, "扇": 17.0, "ハンマー": 16.9, "ブーメラン": 16.8, "弓": 16.7, "鎌": 16.6 };
-      const monsterTypes = { "ドラゴン系": 16.5, "虫系": 16.4, "獣系": 16.3, "ゾンビ系": 16.2, "植物系": 16.1, "怪人系": 16.0, "悪魔系": 15.9, "エレ系": 15.8, "鳥系": 15.7, "物質系": 15.6, "スライム系": 15.5, "マシン系": 15.4, "水系": 15.3 };
-      const newEffects = { "取り敢えず収納 (カテゴリー用)": 500, "汎用ベルト (カテゴリー用)": 10000, "保留中のベルト (カテゴリー用)": 2000, "前衛職用ベルト (カテゴリー用)": 8000, "中衛職用ベルト (カテゴリー用)": 6000, "後衛職用ベルト (カテゴリー用)": 4000 };
-      const elements = ["炎", "氷", "風", "雷", "土", "闇", "光"];
-      const percentages = [12, 13, 14, 15];
+        const effectsData = {
+            "効果なし": -30, "こうげき力+15": 15, "こうげき力+20": 21.8, "こうげき力+25": 22,
+            "こうげき魔力と回復魔力+30": 14.9, "こうげき魔力と回復魔力+40": 21.7, "こうげき魔力と回復魔力+50": 21.9,
+            "会心率と呪文暴走率+1.0%": 14.8, "会心率と呪文暴走率+1.5%": 21.7, "会心率と呪文暴走率+2.0%": 21.8,
+            "盾装備で開戦時○○系": 0.05
+        };
+        const weaponEffects = { "片手剣": 18, "両手剣": 17.9, "短剣": 17.8, "スティック": 17.7, "両手杖": 17.6, "ヤリ": 17.5, "オノ": 17.4, "棍": 17.3, "ツメ": 17.2, "ムチ": 17.1, "扇": 17.0, "ハンマー": 16.9, "ブーメラン": 16.8, "弓": 16.7, "鎌": 16.6 };
+        const monsterTypes = { "ドラゴン系": 16.5, "虫系": 16.4, "獣系": 16.3, "ゾンビ系": 16.2, "植物系": 16.1, "怪人系": 16.0, "悪魔系": 15.9, "エレ系": 15.8, "鳥系": 15.7, "物質系": 15.6, "スライム系": 15.5, "マシン系": 15.4, "水系": 15.3 };
+        const newEffects = { "取り敢えず収納 (カテゴリー用)": 500, "汎用ベルト (カテゴリー用)": 10000, "保留中のベルト (カテゴリー用)": 2000, "前衛職用ベルト (カテゴリー用)": 8000, "中衛職用ベルト (カテゴリー用)": 6000, "後衛職用ベルト (カテゴリー用)": 4000 };
+        const elements = ["炎", "氷", "風", "雷", "土", "闇", "光"];
+        const percentages = [12, 13, 14, 15];
 
-      for (const weapon in weaponEffects) {
-        const baseScore = weaponEffects[weapon];
-        for (const element of elements) {
-          for (const percentage of percentages) {
-            effectsData[`${weapon}装備時 ${element}の攻撃ダメージ+${percentage}%`] = baseScore + (percentage - 12);
-          }
+        for (const weapon in weaponEffects) {
+            const baseScore = weaponEffects[weapon];
+            for (const element of elements) {
+                for (const percentage of percentages) {
+                    effectsData[`${weapon}装備時 ${element}の攻撃ダメージ+${percentage}%`] = baseScore + (percentage - 12);
+                }
+            }
         }
-      }
-      
-      for (const type in monsterTypes) {
-        const baseScore = monsterTypes[type];
-        for (let i = 0; i < 4; i++) {
-          const percentage = 9 + i;
-          effectsData[`${type}にダメージ+${percentage}%`] = baseScore + i;
+        
+        for (const type in monsterTypes) {
+            const baseScore = monsterTypes[type];
+            for (let i = 0; i < 4; i++) {
+                const percentage = 9 + i;
+                effectsData[`${type}にダメージ+${percentage}%`] = baseScore + i;
+            }
         }
-      }
 
-      return { ...newEffects, ...effectsData };
+        return { ...newEffects, ...effectsData };
     }
 
     const ALL_EFFECTS_DATA = createAllEffectsData();
-    const SAVED_BELTS_KEY = 'savedBelts';
     const FILTERS = {
         'all':       { min: -Infinity, max: Infinity },
         'general':   { min: 10000,     max: 10499 },
@@ -127,10 +128,9 @@
     const filterButtonGroup = document.getElementById('filterButtonGroup');
     const sortButtonGroup = document.getElementById('sortButtonGroup');
     
-    // 3種類のオプションリストを事前に生成
-    const fullOptionsFragment = document.createDocumentFragment(); // 検索用
-    const categoryOptionsFragment = document.createDocumentFragment(); // カテゴリー選択用
-    const effectOptionsFragment = document.createDocumentFragment(); // 効果選択用
+    const fullOptionsFragment = document.createDocumentFragment();
+    const categoryOptionsFragment = document.createDocumentFragment();
+    const effectOptionsFragment = document.createDocumentFragment();
 
     for (let effect in ALL_EFFECTS_DATA) {
         const option = document.createElement('option');
@@ -146,12 +146,32 @@
         }
     }
 
+    function migrateSavedBelts() {
+        console.log("Checking for data migration...");
+        const savedBelts = getSavedBelts();
+        if (savedBelts.length === 0) {
+            localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
+            console.log("No belts to migrate. Set current data version.");
+            return;
+        }
+
+        const optimizedBelts = savedBelts.map(beltEffects => {
+            const category = beltEffects[0] || "効果なし";
+            const effects = beltEffects.slice(1);
+            effects.sort((a, b) => (ALL_EFFECTS_DATA[b] || 0) - (ALL_EFFECTS_DATA[a] || 0));
+            return [category, ...effects];
+        });
+
+        localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(optimizedBelts));
+        localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
+        console.log(`Data migration complete. ${optimizedBelts.length} belts have been optimized to version ${DATA_VERSION}.`);
+    }
+
     function filterOptions(searchInput, selectElement) {
         const searchTerm = searchInput.value.toLowerCase();
         const currentValue = selectElement.value;
 
         if (searchTerm === '') {
-            // 検索欄が空になったら、元の選択肢リストに戻す
             selectElement.innerHTML = '';
             if (selectElement.dataset.type === 'category') {
                 selectElement.appendChild(categoryOptionsFragment.cloneNode(true));
@@ -159,7 +179,6 @@
                 selectElement.appendChild(effectOptionsFragment.cloneNode(true));
             }
         } else {
-            // 検索中は全ての効果から絞り込む
             const filteredOptions = Array.from(fullOptionsFragment.children)
                 .filter(option => option.textContent.toLowerCase().includes(searchTerm));
             
@@ -167,7 +186,6 @@
             filteredOptions.forEach(option => selectElement.appendChild(option.cloneNode(true)));
         }
         
-        // 現在選択中の値がリストにない場合、一時的に追加して表示を維持する
         if (Array.from(selectElement.options).every(opt => opt.value !== currentValue)) {
             const currentOption = document.createElement('option');
             currentOption.value = currentValue;
@@ -182,21 +200,18 @@
         for (let i = 0; i < 6; i++) {
             const div = document.createElement('div');
             div.className = 'effect-block';
-
             const label = document.createElement('label');
             label.textContent = labels[i];
-            
             const searchInput = document.createElement('input');
             searchInput.type = 'text';
             searchInput.className = 'effect-search';
             searchInput.placeholder = '効果を検索して絞り込み...';
-
             const select = document.createElement('select');
             
-            if (i === 0) { // 最初のドロップダウンはカテゴリー用
+            if (i === 0) {
                 select.dataset.type = 'category';
                 select.appendChild(categoryOptionsFragment.cloneNode(true));
-            } else { // それ以外は効果用
+            } else {
                 select.dataset.type = 'effect';
                 select.appendChild(effectOptionsFragment.cloneNode(true));
             }
@@ -209,9 +224,7 @@
                 }
                 updateAndSort();
             });
-
             searchInput.addEventListener('input', () => filterOptions(searchInput, select));
-
             div.appendChild(label);
             div.appendChild(searchInput);
             div.appendChild(select);
@@ -220,12 +233,9 @@
     }
 
     function updateAndSort() {
-        // カテゴリーはソートせず、効果1～5のみをソート対象とする
         const effectSelects = Array.from(container.querySelectorAll('select[data-type="effect"]'));
         const currentEffectValues = effectSelects.map(select => select.value);
-
         currentEffectValues.sort((a, b) => (ALL_EFFECTS_DATA[b] || 0) - (ALL_EFFECTS_DATA[a] || 0));
-
         effectSelects.forEach((select, index) => {
             const newValue = currentEffectValues[index];
             if (select.value !== newValue) {
@@ -233,13 +243,11 @@
             }
         });
         
-        // 合計スコアは全てのセレクトボックスを対象に計算
         let total = 0;
         const allSelects = container.querySelectorAll('select');
         allSelects.forEach(select => {
             total += ALL_EFFECTS_DATA[select.value] || 0;
         });
-
         document.getElementById('totalScore').textContent = `合計点数: ${total.toFixed(1)}`;
     }
 
@@ -247,13 +255,13 @@
         const selects = container.querySelectorAll('select');
         const effects = Array.from(selects).map(select => select.value);
         
-        // すべてが「効果なし」の場合は保存しない
         if (effects.every(v => v === "効果なし")) return;
 
         const savedBelts = getSavedBelts();
         
         savedBelts.push(effects);
         localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(savedBelts));
+        localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
         updateDisplay();
     }
 
@@ -297,14 +305,10 @@
             
             const beltItem = document.createElement('div');
             beltItem.className = 'saved-belt-item';
-
             const beltInfo = document.createElement('div');
             beltInfo.className = 'saved-belt-info';
-            // "効果なし"を除外して表示
             const validEffects = effects.filter(e => e !== '効果なし');
             beltInfo.addEventListener('click', () => loadBelt(effects));
-
-
             const scoreDisplay = document.createElement('strong');
             scoreDisplay.textContent = `合計点数: ${score.toFixed(1)}`;
             beltInfo.appendChild(scoreDisplay);
@@ -331,19 +335,13 @@
 
     function updateActiveButtons() {
         filterButtonGroup.querySelectorAll('button').forEach(button => {
-            if (button.dataset.filter === currentFilter) {
-                button.classList.add('active');
-            } else {
-                button.classList.remove('active');
-            }
+            button.classList.toggle('active', button.dataset.filter === currentFilter);
         });
         sortButtonGroup.querySelectorAll('button').forEach(button => {
             const sortId = button.id;
-            if ((sortId === 'sortDivine' && currentSortDirection === 'divine') || (sortId === 'sortTrash' && currentSortDirection === 'trash')) {
-                 button.classList.add('active');
-            } else {
-                 button.classList.remove('active');
-            }
+            const isActive = (sortId === 'sortDivine' && currentSortDirection === 'divine') || 
+                             (sortId === 'sortTrash' && currentSortDirection === 'trash');
+            button.classList.toggle('active', isActive);
         });
     }
 
@@ -359,7 +357,6 @@
         });
         
         selects.forEach((select, index) => {
-            // 保存されたデータに合わせて値を設定。データがない場合は"効果なし"
             select.value = effects[index] || "効果なし";
         });
         
@@ -369,7 +366,6 @@
 
     function deleteBelt(effectsToDelete) {
         let savedBelts = getSavedBelts();
-        // sort()を削除し、保存された順序のまま比較
         const effectsToDeleteStr = JSON.stringify(effectsToDelete);
         const indexToDelete = savedBelts.findIndex(belt => JSON.stringify(belt) === effectsToDeleteStr);
 
@@ -381,6 +377,11 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        const storedVersion = localStorage.getItem(DATA_VERSION_KEY);
+        if (storedVersion !== DATA_VERSION) {
+            migrateSavedBelts();
+        }
+
         createEffectSelects();
         updateAndSort();
         
@@ -404,7 +405,6 @@
 
         updateDisplay();
     });
-    // ▲ここまで修正▲
   </script>
 </body>
 </html>
