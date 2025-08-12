@@ -442,27 +442,30 @@
         if (isSorting) return;
         isSorting = true;
 
-        // --- 自動ソート処理 ---
-        const effectSelects = Array.from(container.querySelectorAll('select[data-type="effect"]'));
-        const effectValues = effectSelects.map(s => s.value);
-        const sortedValues = [...effectValues].sort((a, b) => (ALL_EFFECTS_DATA[b] || 0) - (ALL_EFFECTS_DATA[a] || 0));
-        effectSelects.forEach((select, index) => {
-            select.value = sortedValues[index];
-        });
-
-        // --- 選択肢の動的更新処理 ---
         const allSelects = Array.from(container.querySelectorAll('select'));
         const searchInputs = Array.from(container.querySelectorAll('.effect-search'));
-        const allCurrentValues = allSelects.map(s => s.value); // ソート後の最新の値を一度だけ取得
+        
+        // 現在の値を取得し、スコアでソートする
+        const currentEffects = allSelects.slice(1).map(s => s.value);
+        const categoryEffect = allSelects[0].value;
+        const sortedEffects = [...currentEffects].sort((a, b) => (ALL_EFFECTS_DATA[b] || 0) - (ALL_EFFECTS_DATA[a] || 0));
+
+        // ソートされた値をプルダウンに反映する
+        allSelects.slice(1).forEach((select, index) => {
+            select.value = sortedEffects[index];
+        });
+        allSelects[0].value = categoryEffect;
+
+        // --- 選択肢の動的更新処理 ---
+        const allCurrentValues = allSelects.map(s => s.value);
 
         allSelects.forEach((select, currentIndex) => {
-            const currentValue = allCurrentValues[currentIndex]; // ループ開始前の値を保持
+            const currentValue = allCurrentValues[currentIndex];
             const searchTerm = searchInputs[currentIndex] ? searchInputs[currentIndex].value.toLowerCase() : '';
 
-            // ★修正の核：【自分以外の】プルダウンで使われているグループキーを計算する
             const otherUsedGroupKeys = new Set();
             allCurrentValues.forEach((value, index) => {
-                if (currentIndex !== index && value !== '効果なし') { // 自分自身のインデックスは除外
+                if (currentIndex !== index && value !== '効果なし') {
                     const groupKey = getGroupKeyForEffect(value);
                     if (groupKey) {
                         otherUsedGroupKeys.add(groupKey);
@@ -472,27 +475,29 @@
 
             const sourceFragment = select.dataset.type === 'category' ? categoryOptionsFragment : effectOptionsFragment;
             const newOptionsFragment = document.createDocumentFragment();
-
+            const optionValues = new Set();
+            
+            // 選択肢を再構築
             Array.from(sourceFragment.children).forEach(optionNode => {
                 const optionValue = optionNode.value;
                 const optionGroupKey = getGroupKeyForEffect(optionValue);
                 const optionText = optionNode.textContent.toLowerCase();
 
-                // ★修正の核：自分以外のキーセットで選択肢をフィルタリング
                 const isSelectableByGroup = !optionGroupKey || !otherUsedGroupKeys.has(optionGroupKey);
                 const matchesSearch = !searchTerm || optionText.includes(searchTerm);
 
-                if (isSelectableByGroup && matchesSearch) {
+                if (isSelectableByGroup && matchesSearch && !optionValues.has(optionValue)) {
                     newOptionsFragment.appendChild(optionNode.cloneNode(true));
+                    optionValues.add(optionValue);
                 }
             });
             
             select.innerHTML = '';
             select.appendChild(newOptionsFragment);
             
-            // フィルタリングで選択肢から消えても、現在の値は復元する
+            // 選択肢から消えても、現在の値は復元する
             const valueExists = Array.from(select.options).some(opt => opt.value === currentValue);
-            if (!valueExists && currentValue !== '効果なし') {
+            if (!valueExists) {
                 const restoredOption = document.createElement('option');
                 restoredOption.value = currentValue;
                 restoredOption.textContent = currentValue;
