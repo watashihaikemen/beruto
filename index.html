@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>戦神のベルト管理ツール (ver1.7)</title>
+  <title>戦神のベルト管理ツール 再修正(ver1.7)</title>
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; background-color: #f0f2f5; }
     h1 { text-align: center; color: #333; }
@@ -437,7 +437,6 @@
         updateAndSort();
     }
     
-    // ★★★修正点：自動ソートと選択肢絞り込みの競合を解消★★★
     function updateAndSort() {
         if (isSorting) return;
         isSorting = true;
@@ -445,26 +444,29 @@
         const allSelects = Array.from(container.querySelectorAll('select'));
         const searchInputs = Array.from(container.querySelectorAll('.effect-search'));
         
-        // 現在の値を取得し、スコアでソートする
-        const currentEffects = allSelects.slice(1).map(s => s.value);
-        const categoryEffect = allSelects[0].value;
-        const sortedEffects = [...currentEffects].sort((a, b) => (ALL_EFFECTS_DATA[b] || 0) - (ALL_EFFECTS_DATA[a] || 0));
+        // 現在の効果の値をすべて取得
+        const allCurrentValues = allSelects.map(s => s.value);
+        
+        // カテゴリー以外の効果をスコアでソート
+        const effectsForSorting = allCurrentValues.slice(1);
+        const sortedEffects = [...effectsForSorting].sort((a, b) => (ALL_EFFECTS_DATA[b] || 0) - (ALL_EFFECTS_DATA[a] || 0));
 
-        // ソートされた値をプルダウンに反映する
+        // ソートされた値をプルダウンに反映
         allSelects.slice(1).forEach((select, index) => {
             select.value = sortedEffects[index];
         });
-        allSelects[0].value = categoryEffect;
 
-        // --- 選択肢の動的更新処理 ---
-        const allCurrentValues = allSelects.map(s => s.value);
-
+        // 最新の値を再度取得
+        const updatedValues = allSelects.map(s => s.value);
+        
+        // 選択肢の動的更新
         allSelects.forEach((select, currentIndex) => {
-            const currentValue = allCurrentValues[currentIndex];
+            const currentValue = updatedValues[currentIndex];
             const searchTerm = searchInputs[currentIndex] ? searchInputs[currentIndex].value.toLowerCase() : '';
 
+            // 自分以外のプルダウンで使われているグループキーを計算
             const otherUsedGroupKeys = new Set();
-            allCurrentValues.forEach((value, index) => {
+            updatedValues.forEach((value, index) => {
                 if (currentIndex !== index && value !== '効果なし') {
                     const groupKey = getGroupKeyForEffect(value);
                     if (groupKey) {
@@ -477,13 +479,13 @@
             const newOptionsFragment = document.createDocumentFragment();
             const optionValues = new Set();
             
-            // 選択肢を再構築
             Array.from(sourceFragment.children).forEach(optionNode => {
                 const optionValue = optionNode.value;
                 const optionGroupKey = getGroupKeyForEffect(optionValue);
                 const optionText = optionNode.textContent.toLowerCase();
 
-                const isSelectableByGroup = !optionGroupKey || !otherUsedGroupKeys.has(optionGroupKey);
+                // 選択肢をフィルタリング
+                const isSelectableByGroup = !optionGroupKey || !otherUsedGroupKeys.has(optionGroupKey) || optionValue === currentValue;
                 const matchesSearch = !searchTerm || optionText.includes(searchTerm);
 
                 if (isSelectableByGroup && matchesSearch && !optionValues.has(optionValue)) {
@@ -495,7 +497,7 @@
             select.innerHTML = '';
             select.appendChild(newOptionsFragment);
             
-            // 選択肢から消えても、現在の値は復元する
+            // フィルタリングで選択肢から消えても、現在の値は復元する
             const valueExists = Array.from(select.options).some(opt => opt.value === currentValue);
             if (!valueExists) {
                 const restoredOption = document.createElement('option');
@@ -506,7 +508,7 @@
             select.value = currentValue;
         });
 
-        // --- スコア計算 ---
+        // スコア計算
         let totalScore = 0;
         allSelects.forEach(select => {
             totalScore += ALL_EFFECTS_DATA[select.value] || 0;
