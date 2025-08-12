@@ -26,7 +26,7 @@
     #savedBeltsSection h2 { text-align: center; color: #333; }
     #savedBeltsCount { font-size: 16px; color: #666; font-weight: normal; margin-left: 8px; }
     .saved-belt-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; margin-bottom: 12px; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s ease-in-out; }
-    .saved-belt-item:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .saved-belt-item:hover { background-color: #fcfcfc; transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     .saved-belt-info { cursor: pointer; flex-grow: 1; }
     /* スコアを元の通り非表示に設定 */
     .saved-belt-info strong { display: none; }
@@ -37,27 +37,15 @@
     .action-button-group button { padding: 8px 15px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; background-color: #f0f0f0; margin: 0; }
     .action-button-group button.active { background-color: #007bff; color: white; border-color: #007bff; }
 
-    /* ▼▼▼ 修正されたスタイル ▼▼▼ */
-    /* カテゴリー別の背景色 */
-    .saved-belt-item.category-front   { background-color: #ffebee; } /* 前衛職用: 薄い赤 */
-    .saved-belt-item.category-mid     { background-color: #ede7f6; } /* 中衛職用: 薄い紫 */
-    .saved-belt-item.category-back    { background-color: #e8eaf6; } /* 後衛職用: 薄い紺 */
-    .saved-belt-item.category-pending { background-color: #fff3e0; } /* 保留中: 薄い橙 */
-    .saved-belt-item.category-storage { background-color: #f5f5f5; } /* 収納: 薄い灰色 */
-    .saved-belt-item.category-general { /* 汎用: 虹色グラデーション */
-        background-image: linear-gradient(100deg, #ffebee, #fff3e0, #fffde7, #e8f5e9, #e3f2fd, #ede7f6);
-    }
-
-    /* hover時の背景色を少し濃くする */
-    .saved-belt-item.category-front:hover   { background-color: #ffcdd2; }
-    .saved-belt-item.category-mid:hover     { background-color: #d1c4e9; }
-    .saved-belt-item.category-back:hover    { background-color: #c5cae9; }
-    .saved-belt-item.category-pending:hover { background-color: #ffe0b2; }
-    .saved-belt-item.category-storage:hover { background-color: #eeeeee; }
-    .saved-belt-item.category-general:hover {
-        background-image: linear-gradient(100deg, #ffcdd2, #ffe0b2, #fff9c4, #c8e6c9, #bbdefb, #d1c4e9);
-    }
-    /* ▲▲▲ 修正されたスタイル ▲▲▲ */
+    /* カテゴリーごとの色を追加 */
+    .category-general { background-color: #e0f7fa; border-left: 5px solid #00acc1; }
+    .category-front { background-color: #fff3e0; border-left: 5px solid #ff9800; }
+    .category-mid { background-color: #fbe9e7; border-left: 5px solid #d84315; }
+    .category-back { background-color: #e8eaf6; border-left: 5px solid #3f51b5; }
+    .category-pending { background-color: #fffde7; border-left: 5px solid #ffc107; }
+    .category-storage { background-color: #eceff1; border-left: 5px solid #607d8b; }
+    .category-default { background-color: #ffffff; border-left: 5px solid #dddddd; }
+    
   </style>
 </head>
 <body>
@@ -324,24 +312,22 @@
 
         beltsToRender.forEach((beltData) => {
             const { effects, score } = beltData;
+            const categoryEffect = effects[0] || '効果なし';
             
             const beltItem = document.createElement('div');
             beltItem.className = 'saved-belt-item';
-
-            // スコアに基づいてカテゴリークラスを追加
-            if (score >= FILTERS.general.min && score <= FILTERS.general.max) {
-                beltItem.classList.add('category-general');
-            } else if (score >= FILTERS.front.min && score <= FILTERS.front.max) {
-                beltItem.classList.add('category-front');
-            } else if (score >= FILTERS.mid.min && score <= FILTERS.mid.max) {
-                beltItem.classList.add('category-mid');
-            } else if (score >= FILTERS.back.min && score <= FILTERS.back.max) {
-                beltItem.classList.add('category-back');
-            } else if (score >= FILTERS.pending.min && score <= FILTERS.pending.max) {
-                beltItem.classList.add('category-pending');
-            } else if (score >= FILTERS.storage.min && score <= FILTERS.storage.max) {
-                beltItem.classList.add('category-storage');
-            }
+            
+            // カテゴリー名からCSSクラスを決定
+            const categoryClassMap = {
+                "汎用ベルト (カテゴリー用)": "category-general",
+                "前衛職用ベルト (カテゴリー用)": "category-front",
+                "中衛職用ベルト (カテゴリー用)": "category-mid",
+                "後衛職用ベルト (カテゴリー用)": "category-back",
+                "保留中のベルト (カテゴリー用)": "category-pending",
+                "取り敢えず収納 (カテゴリー用)": "category-storage"
+            };
+            const categoryClassName = categoryClassMap[categoryEffect] || 'category-default';
+            beltItem.classList.add(categoryClassName);
 
             const beltInfo = document.createElement('div');
             beltInfo.className = 'saved-belt-info';
