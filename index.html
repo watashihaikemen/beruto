@@ -31,8 +31,14 @@
     /* スコアを元の通り非表示に設定 */
     .saved-belt-info strong { display: none; }
     .saved-belt-info span { display: block; font-size: 14px; color: #666; margin-top: 4px; }
-    .saved-belt-delete { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
+    .saved-belt-actions { display: flex; flex-shrink: 0; margin-left: 10px; gap: 8px; }
+    .saved-belt-actions button { color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
+    .saved-belt-lock { background-color: #17a2b8; }
+    .saved-belt-lock:hover { background-color: #138496; }
+    .saved-belt-delete { background-color: #dc3545; }
     .saved-belt-delete:hover { background-color: #c82333; }
+    .saved-belt-delete:disabled { background-color: #6c757d; cursor: not-allowed; opacity: 0.65; }
+
     .action-button-group { text-align: center; margin-bottom: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
     .action-button-group button { padding: 8px 15px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; background-color: #f0f0f0; margin: 0; }
     .action-button-group button.active { background-color: #007bff; color: white; border-color: #007bff; }
@@ -79,7 +85,7 @@
   </div>
 
   <script>
-    const DATA_VERSION = '1.1';
+    const DATA_VERSION = '1.2'; // ロック機能追加に伴いバージョン更新
     const SAVED_BELTS_KEY = 'savedBelts';
     const DATA_VERSION_KEY = 'savedBeltsVersion';
 
@@ -158,23 +164,31 @@
 
     function migrateSavedBelts() {
         console.log("Checking for data migration...");
-        const savedBelts = getSavedBelts();
+        let savedBelts = getSavedBelts(true); // Get raw data
         if (savedBelts.length === 0) {
             localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
             console.log("No belts to migrate. Set current data version.");
             return;
         }
 
-        const optimizedBelts = savedBelts.map(beltEffects => {
-            const category = beltEffects[0] || "効果なし";
-            const effects = beltEffects.slice(1);
-            effects.sort((a, b) => (ALL_EFFECTS_DATA[b] || 0) - (ALL_EFFECTS_DATA[a] || 0));
-            return [category, ...effects];
-        });
-
-        localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(optimizedBelts));
+        // Check if migration is needed (is the first item an array or an object?)
+        if (Array.isArray(savedBelts[0])) {
+            console.log("Old data format detected. Migrating to new format with lock state.");
+            const migratedBelts = savedBelts.map(beltEffects => {
+                const category = beltEffects[0] || "効果なし";
+                const effects = beltEffects.slice(1);
+                effects.sort((a, b) => (ALL_EFFECTS_DATA[b] || 0) - (ALL_EFFECTS_DATA[a] || 0));
+                return {
+                    effects: [category, ...effects],
+                    locked: false
+                };
+            });
+            localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(migratedBelts));
+            console.log(`Data migration complete. ${migratedBelts.length} belts have been migrated to version ${DATA_VERSION}.`);
+        } else {
+             console.log("Data is already up to date.");
+        }
         localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
-        console.log(`Data migration complete. ${optimizedBelts.length} belts have been optimized to version ${DATA_VERSION}.`);
     }
 
     function filterOptions(searchInput, selectElement) {
@@ -267,16 +281,22 @@
         
         if (effects.every(v => v === "効果なし")) return;
 
+        const newBelt = {
+            effects: effects,
+            locked: false // 新しいベルトは常にロックされていない
+        };
+
         const savedBelts = getSavedBelts();
-        
-        savedBelts.push(effects);
+        savedBelts.push(newBelt);
         localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(savedBelts));
-        localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
         updateDisplay();
     }
 
-    function getSavedBelts() {
+    function getSavedBelts(raw = false) {
         const savedBelts = localStorage.getItem(SAVED_BELTS_KEY);
+        if (raw) return savedBelts ? JSON.parse(savedBelts) : [];
+
+        // Return a deep copy to prevent mutation of the original data
         return savedBelts ? JSON.parse(savedBelts) : [];
     }
     
@@ -286,9 +306,9 @@
     
     function updateDisplay() {
         let savedBelts = getSavedBelts();
-        let beltsWithScores = savedBelts.map(effects => ({
-            effects: effects,
-            score: calculateTotalScore(effects)
+        let beltsWithScores = savedBelts.map(belt => ({
+            ...belt,
+            score: calculateTotalScore(belt.effects)
         }));
 
         const filterCriteria = FILTERS[currentFilter];
@@ -311,13 +331,12 @@
         savedBeltsCountElement.textContent = `(表示: ${beltsToRender.length}個 / 合計: ${totalSavedCount}個)`;
 
         beltsToRender.forEach((beltData) => {
-            const { effects, score } = beltData;
+            const { effects, score, locked } = beltData;
             const categoryEffect = effects[0] || '効果なし';
             
             const beltItem = document.createElement('div');
             beltItem.className = 'saved-belt-item';
             
-            // カテゴリー名からCSSクラスを決定
             const categoryClassMap = {
                 "汎用ベルト (カテゴリー用)": "category-general",
                 "前衛職用ベルト (カテゴリー用)": "category-front",
@@ -343,18 +362,48 @@
                 beltInfo.appendChild(effectSpan);
             });
 
+            // Action buttons container
+            const actionButtons = document.createElement('div');
+            actionButtons.className = 'saved-belt-actions';
+
+            // Lock button
+            const lockButton = document.createElement('button');
+            lockButton.className = 'saved-belt-lock';
+            lockButton.textContent = locked ? '解除' : 'ロック';
+            lockButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleLockState(effects);
+            });
+
+            // Delete button
             const deleteButton = document.createElement('button');
             deleteButton.className = 'saved-belt-delete';
             deleteButton.textContent = '削除';
+            deleteButton.disabled = locked; // Disable if locked
             deleteButton.addEventListener('click', (e) => {
               e.stopPropagation();
               deleteBelt(effects);
             });
 
+            actionButtons.appendChild(lockButton);
+            actionButtons.appendChild(deleteButton);
+
             beltItem.appendChild(beltInfo);
-            beltItem.appendChild(deleteButton);
+            beltItem.appendChild(actionButtons);
             savedBeltsList.appendChild(beltItem);
         });
+    }
+
+    function toggleLockState(effectsToToggle) {
+        let savedBelts = getSavedBelts();
+        const effectsToToggleStr = JSON.stringify(effectsToToggle);
+        const beltToToggle = savedBelts.find(belt => JSON.stringify(belt.effects) === effectsToToggleStr);
+
+        if (beltToToggle) {
+            beltToToggle.locked = !beltToToggle.locked;
+            localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(savedBelts));
+            updateDisplay();
+        }
     }
 
     function updateActiveButtons() {
@@ -391,11 +440,10 @@
     function deleteBelt(effectsToDelete) {
         let savedBelts = getSavedBelts();
         const effectsToDeleteStr = JSON.stringify(effectsToDelete);
-        const indexToDelete = savedBelts.findIndex(belt => JSON.stringify(belt) === effectsToDeleteStr);
+        const updatedBelts = savedBelts.filter(belt => JSON.stringify(belt.effects) !== effectsToDeleteStr);
 
-        if (indexToDelete > -1) {
-            savedBelts.splice(indexToDelete, 1);
-            localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(savedBelts));
+        if (savedBelts.length !== updatedBelts.length) {
+            localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(updatedBelts));
             updateDisplay();
         }
     }
@@ -432,4 +480,3 @@
   </script>
 </body>
 </html>
-
