@@ -36,6 +36,28 @@
     .action-button-group { text-align: center; margin-bottom: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
     .action-button-group button { padding: 8px 15px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; background-color: #f0f0f0; margin: 0; }
     .action-button-group button.active { background-color: #007bff; color: white; border-color: #007bff; }
+
+    /* ▼▼▼ 追加したスタイル ▼▼▼ */
+    /* カテゴリー別の背景色 */
+    .saved-belt-item.category-front   { background-color: #ffebee; } /* 前衛職用: 薄い赤 */
+    .saved-belt-item.category-mid     { background-color: #ede7f6; } /* 中衛職用: 薄い紫 */
+    .saved-belt-item.category-back    { background-color: #e8eaf6; } /* 後衛職用: 薄い紺 */
+    .saved-belt-item.category-pending { background-color: #fff3e0; } /* 保留中: 薄い橙 */
+    .saved-belt-item.category-storage { background-color: #f5f5f5; } /* 収納: 薄い灰色 */
+    .saved-belt-item.category-general { /* 汎用: 虹色グラデーション */
+        background-image: linear-gradient(100deg, #ffebee, #fff3e0, #fffde7, #e8f5e9, #e3f2fd, #ede7f6);
+    }
+
+    /* hover時の背景色を少し濃くする */
+    .saved-belt-item.category-front:hover   { background-color: #ffcdd2; }
+    .saved-belt-item.category-mid:hover     { background-color: #d1c4e9; }
+    .saved-belt-item.category-back:hover    { background-color: #c5cae9; }
+    .saved-belt-item.category-pending:hover { background-color: #ffe0b2; }
+    .saved-belt-item.category-storage:hover { background-color: #eeeeee; }
+    .saved-belt-item.category-general:hover {
+        background-image: linear-gradient(100deg, #ffcdd2, #ffe0b2, #fff9c4, #c8e6c9, #bbdefb, #d1c4e9);
+    }
+    /* ▲▲▲ 追加したスタイル ▲▲▲ */
   </style>
 </head>
 <body>
@@ -294,6 +316,7 @@
         updateActiveButtons();
     }
 
+    // ▼▼▼ この関数を修正 ▼▼▼
     function renderSavedBelts(beltsToRender) {
         savedBeltsList.innerHTML = '';
         const totalSavedCount = getSavedBelts().length;
@@ -305,6 +328,22 @@
             
             const beltItem = document.createElement('div');
             beltItem.className = 'saved-belt-item';
+
+            // スコアに基づいてカテゴリークラスを追加
+            if (score >= FILTERS.general.min && score <= FILTERS.general.max) {
+                beltItem.classList.add('category-general');
+            } else if (score >= FILTERS.front.min && score <= FILTERS.front.max) {
+                beltItem.classList.add('category-front');
+            } else if (score >= FILTERS.mid.min && score <= FILTERS.mid.max) {
+                beltItem.classList.add('category-mid');
+            } else if (score >= FILTERS.back.min && score <= FILTERS.back.max) {
+                beltItem.classList.add('category-back');
+            } else if (score >= FILTERS.pending.min && score <= FILTERS.pending.max) {
+                beltItem.classList.add('category-pending');
+            } else if (score >= FILTERS.storage.min && score <= FILTERS.storage.max) {
+                beltItem.classList.add('category-storage');
+            }
+
             const beltInfo = document.createElement('div');
             beltInfo.className = 'saved-belt-info';
             const validEffects = effects.filter(e => e !== '効果なし');
@@ -332,6 +371,7 @@
             savedBeltsList.appendChild(beltItem);
         });
     }
+    // ▲▲▲ 修正はここまで ▲▲▲
 
     function updateActiveButtons() {
         filterButtonGroup.querySelectorAll('button').forEach(button => {
