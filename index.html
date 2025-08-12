@@ -28,12 +28,14 @@
     .saved-belt-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; margin-bottom: 12px; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s ease-in-out; }
     .saved-belt-item:hover { background-color: #fcfcfc; transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     .saved-belt-info { cursor: pointer; flex-grow: 1; }
-    .saved-belt-info span { display: block; font-size: 14px; color: #666; margin-top: 4px; }
+    /* ▼変更▼ スコアを元の通り非表示に設定 */
     .saved-belt-info strong { display: none; }
+    .saved-belt-info span { display: block; font-size: 14px; color: #666; margin-top: 4px; }
     .saved-belt-delete { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
     .saved-belt-delete:hover { background-color: #c82333; }
-    .sort-button-group { text-align: center; margin-bottom: 20px; }
-    .sort-button-group button { padding: 8px 15px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; background-color: #f0f0f0; margin: 0 5px; }
+    .action-button-group { text-align: center; margin-bottom: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .action-button-group button { padding: 8px 15px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; background-color: #f0f0f0; margin: 0; }
+    .action-button-group button.active { background-color: #007bff; color: white; border-color: #007bff; }
   </style>
 </head>
 <body>
@@ -48,7 +50,18 @@
 
   <div id="savedBeltsSection">
     <h2>保存されたベルト<span id="savedBeltsCount"></span></h2>
-    <div class="sort-button-group">
+
+    <div id="filterButtonGroup" class="action-button-group">
+      <button data-filter="all">すべて表示</button>
+      <button data-filter="general">汎用ベルト</button>
+      <button data-filter="front">前衛職用ベルト</button>
+      <button data-filter="mid">中衛職用ベルト</button>
+      <button data-filter="back">後衛職用ベルト</button>
+      <button data-filter="pending">保留中のベルト</button>
+      <button data-filter="storage">取り敢えず収納</button>
+    </div>
+
+    <div class="action-button-group" id="sortButtonGroup">
       <button id="sortDivine">神ベルト順</button>
       <button id="sortTrash">ゴミベルト順</button>
     </div>
@@ -92,6 +105,17 @@
 
     const ALL_EFFECTS_DATA = createAllEffectsData();
     const SAVED_BELTS_KEY = 'savedBelts';
+    const FILTERS = {
+        'all':       { min: -Infinity, max: Infinity },
+        'general':   { min: 10000,     max: 10499 },
+        'front':     { min: 8000,      max: 9999 },
+        'mid':       { min: 6000,      max: 7999 },
+        'back':      { min: 4000,      max: 5999 },
+        'pending':   { min: 2000,      max: 3999 },
+        'storage':   { min: 500,       max: 1999 }
+    };
+    let currentFilter = 'all';
+    let currentSortDirection = 'divine';
 
     const container = document.getElementById('effectsContainer');
     const savedBeltsList = document.getElementById('savedBeltsList');
@@ -99,6 +123,8 @@
     const sortDivineButton = document.getElementById('sortDivine');
     const sortTrashButton = document.getElementById('sortTrash');
     const savedBeltsCountElement = document.getElementById('savedBeltsCount');
+    const filterButtonGroup = document.getElementById('filterButtonGroup');
+    const sortButtonGroup = document.getElementById('sortButtonGroup');
 
     const optionsFragment = document.createDocumentFragment();
     for (let effect in ALL_EFFECTS_DATA) {
@@ -113,27 +139,20 @@
         const currentValue = selectElement.value;
 
         selectElement.innerHTML = '';
+        selectElement.appendChild(optionsFragment.cloneNode(true));
 
         if (searchTerm === '') {
-            selectElement.appendChild(optionsFragment.cloneNode(true));
             selectElement.value = currentValue;
             return;
         }
-
-        let currentSelectedValueFound = false;
-        for (const effect in ALL_EFFECTS_DATA) {
-            if (effect.toLowerCase().includes(searchTerm)) {
-                const option = document.createElement('option');
-                option.value = effect;
-                option.textContent = effect;
-                selectElement.appendChild(option);
-                if (effect === currentValue) {
-                    currentSelectedValueFound = true;
-                }
-            }
-        }
         
-        if (!currentSelectedValueFound && currentValue !== "効果なし") {
+        const filteredOptions = Array.from(optionsFragment.children)
+            .filter(option => option.textContent.toLowerCase().includes(searchTerm));
+
+        selectElement.innerHTML = '';
+        filteredOptions.forEach(option => selectElement.appendChild(option.cloneNode(true)));
+        
+        if (Array.from(selectElement.options).every(opt => opt.value !== currentValue)) {
             const currentOption = document.createElement('option');
             currentOption.value = currentValue;
             currentOption.textContent = currentValue;
@@ -160,19 +179,13 @@
             select.appendChild(optionsFragment.cloneNode(true));
             select.value = "効果なし";
             
-            // --- ▼ここから修正▼ ---
-            // イベントリスナーを修正し、選択後のフィルター自動クリア機能を追加
             select.addEventListener('change', () => {
-                // 選択が完了したら、このセレクトボックスに対応する検索フィルターをクリアします。
                 if (searchInput.value !== '') {
                     searchInput.value = '';
-                    // フィルター関数を呼び出して、オプションリストを元に戻します。
                     filterOptions(searchInput, select);
                 }
-                // 全体のソートとスコア計算を実行します。
                 updateAndSort();
             });
-            // --- ▲ここまで修正▲ ---
 
             searchInput.addEventListener('input', () => filterOptions(searchInput, select));
 
@@ -210,7 +223,7 @@
         
         savedBelts.push(effects);
         localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(savedBelts));
-        renderSavedBelts();
+        updateDisplay();
     }
 
     function getSavedBelts() {
@@ -222,41 +235,33 @@
         return effects.reduce((sum, effect) => sum + (ALL_EFFECTS_DATA[effect] || 0), 0);
     }
     
-    function sortBelts(direction) {
+    function updateDisplay() {
         let savedBelts = getSavedBelts();
-        
-        const beltsWithScores = savedBelts.map(effects => ({
+        let beltsWithScores = savedBelts.map(effects => ({
             effects: effects,
             score: calculateTotalScore(effects)
         }));
 
-        beltsWithScores.sort((a, b) => {
-            return direction === 'divine' ? b.score - a.score : a.score - b.score;
+        const filterCriteria = FILTERS[currentFilter];
+        const filteredBelts = beltsWithScores.filter(belt => {
+            return belt.score >= filterCriteria.min && belt.score <= filterCriteria.max;
         });
-        
-        const sortedBelts = beltsWithScores.map(item => item.effects);
-        localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(sortedBelts));
-        
-        renderSavedBelts(beltsWithScores);
+
+        filteredBelts.sort((a, b) => {
+            return currentSortDirection === 'divine' ? b.score - a.score : a.score - b.score;
+        });
+
+        renderSavedBelts(filteredBelts);
+        updateActiveButtons();
     }
 
-    function renderSavedBelts(beltsToRender = null) {
+    function renderSavedBelts(beltsToRender) {
         savedBeltsList.innerHTML = '';
-        let beltsWithScores;
-
-        if (!beltsToRender) {
-            const savedBelts = getSavedBelts();
-            beltsWithScores = savedBelts.map(effects => ({
-                effects: effects,
-                score: calculateTotalScore(effects)
-            }));
-        } else {
-            beltsWithScores = beltsToRender;
-        }
+        const totalSavedCount = getSavedBelts().length;
         
-        savedBeltsCountElement.textContent = `(合計: ${beltsWithScores.length}個)`;
+        savedBeltsCountElement.textContent = `(表示: ${beltsToRender.length}個 / 合計: ${totalSavedCount}個)`;
 
-        beltsWithScores.forEach((beltData) => {
+        beltsToRender.forEach((beltData) => {
             const { effects, score } = beltData;
             
             const beltItem = document.createElement('div');
@@ -290,36 +295,46 @@
         });
     }
 
-    // --- ▼ここから修正▼ ---
-    // loadBelt関数を堅牢化し、読み込み時のフィルターリセットを確実に行う
+    function updateActiveButtons() {
+        filterButtonGroup.querySelectorAll('button').forEach(button => {
+            if (button.dataset.filter === currentFilter) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
+            }
+        });
+        sortButtonGroup.querySelectorAll('button').forEach(button => {
+            const sortId = button.id;
+            if ((sortId === 'sortDivine' && currentSortDirection === 'divine') || (sortId === 'sortTrash' && currentSortDirection === 'trash')) {
+                 button.classList.add('active');
+            } else {
+                 button.classList.remove('active');
+            }
+        });
+    }
+
     function loadBelt(effects) {
         const selects = container.querySelectorAll('select');
         const searchInputs = container.querySelectorAll('.effect-search');
 
-        // まず全ての検索フィルターをクリアし、オプションリストをリセットします。
         searchInputs.forEach((input, index) => {
             if (input.value !== '') {
                 input.value = '';
-                // 対応するselectのオプションをリセットします。
                 filterOptions(input, selects[index]);
             }
         });
         
-        // 全てのselectの値を一旦「効果なし」にリセットします。
         selects.forEach(select => select.value = "効果なし");
         
-        // 保存された効果を順番にセットします。
         effects.forEach((effect, index) => {
             if (selects[index]) {
                 selects[index].value = effect;
             }
         });
         
-        // 最後にソートとスコア計算を実行します。
         updateAndSort();
+        window.scrollTo(0, 0);
     }
-    // --- ▲ここまで修正▲ ---
-
 
     function deleteBelt(effectsToDelete) {
         let savedBelts = getSavedBelts();
@@ -329,17 +344,33 @@
         if (indexToDelete > -1) {
             savedBelts.splice(indexToDelete, 1);
             localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(savedBelts));
-            renderSavedBelts();
+            updateDisplay();
         }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
         createEffectSelects();
         updateAndSort();
-        renderSavedBelts();
+        
         saveButton.addEventListener('click', saveCurrentBelt);
-        sortDivineButton.addEventListener('click', () => sortBelts('divine'));
-        sortTrashButton.addEventListener('click', () => sortBelts('trash'));
+
+        filterButtonGroup.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', () => {
+                currentFilter = button.dataset.filter;
+                updateDisplay();
+            });
+        });
+
+        sortDivineButton.addEventListener('click', () => {
+            currentSortDirection = 'divine';
+            updateDisplay();
+        });
+        sortTrashButton.addEventListener('click', () => {
+            currentSortDirection = 'trash';
+            updateDisplay();
+        });
+
+        updateDisplay();
     });
   </script>
 </body>
