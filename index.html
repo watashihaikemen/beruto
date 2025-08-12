@@ -69,6 +69,7 @@
   </div>
 
   <script>
+    // ▼ここから修正▼
     // データ構造の統合と一元化
     function createAllEffectsData() {
       const effectsData = {
@@ -125,50 +126,65 @@
     const savedBeltsCountElement = document.getElementById('savedBeltsCount');
     const filterButtonGroup = document.getElementById('filterButtonGroup');
     const sortButtonGroup = document.getElementById('sortButtonGroup');
+    
+    // 3種類のオプションリストを事前に生成
+    const fullOptionsFragment = document.createDocumentFragment(); // 検索用
+    const categoryOptionsFragment = document.createDocumentFragment(); // カテゴリー選択用
+    const effectOptionsFragment = document.createDocumentFragment(); // 効果選択用
 
-    const optionsFragment = document.createDocumentFragment();
     for (let effect in ALL_EFFECTS_DATA) {
         const option = document.createElement('option');
         option.value = effect;
         option.textContent = effect;
-        optionsFragment.appendChild(option);
+        fullOptionsFragment.appendChild(option.cloneNode(true));
+
+        if (effect.includes('(カテゴリー用)') || effect === '効果なし') {
+            categoryOptionsFragment.appendChild(option.cloneNode(true));
+        }
+        if (!effect.includes('(カテゴリー用)') || effect === '効果なし') {
+            effectOptionsFragment.appendChild(option.cloneNode(true));
+        }
     }
 
     function filterOptions(searchInput, selectElement) {
         const searchTerm = searchInput.value.toLowerCase();
         const currentValue = selectElement.value;
 
-        selectElement.innerHTML = '';
-        selectElement.appendChild(optionsFragment.cloneNode(true));
-
         if (searchTerm === '') {
-            selectElement.value = currentValue;
-            return;
+            // 検索欄が空になったら、元の選択肢リストに戻す
+            selectElement.innerHTML = '';
+            if (selectElement.dataset.type === 'category') {
+                selectElement.appendChild(categoryOptionsFragment.cloneNode(true));
+            } else {
+                selectElement.appendChild(effectOptionsFragment.cloneNode(true));
+            }
+        } else {
+            // 検索中は全ての効果から絞り込む
+            const filteredOptions = Array.from(fullOptionsFragment.children)
+                .filter(option => option.textContent.toLowerCase().includes(searchTerm));
+            
+            selectElement.innerHTML = '';
+            filteredOptions.forEach(option => selectElement.appendChild(option.cloneNode(true)));
         }
         
-        const filteredOptions = Array.from(optionsFragment.children)
-            .filter(option => option.textContent.toLowerCase().includes(searchTerm));
-
-        selectElement.innerHTML = '';
-        filteredOptions.forEach(option => selectElement.appendChild(option.cloneNode(true)));
-        
+        // 現在選択中の値がリストにない場合、一時的に追加して表示を維持する
         if (Array.from(selectElement.options).every(opt => opt.value !== currentValue)) {
             const currentOption = document.createElement('option');
             currentOption.value = currentValue;
             currentOption.textContent = currentValue;
             selectElement.insertBefore(currentOption, selectElement.firstChild);
         }
-
         selectElement.value = currentValue;
     }
 
     function createEffectSelects() {
+        const labels = ["カテゴリー", "効果 1", "効果 2", "効果 3", "効果 4", "効果 5"];
         for (let i = 0; i < 6; i++) {
             const div = document.createElement('div');
             div.className = 'effect-block';
 
             const label = document.createElement('label');
-            label.textContent = `効果 ${i + 1}`;
+            label.textContent = labels[i];
             
             const searchInput = document.createElement('input');
             searchInput.type = 'text';
@@ -176,7 +192,14 @@
             searchInput.placeholder = '効果を検索して絞り込み...';
 
             const select = document.createElement('select');
-            select.appendChild(optionsFragment.cloneNode(true));
+            
+            if (i === 0) { // 最初のドロップダウンはカテゴリー用
+                select.dataset.type = 'category';
+                select.appendChild(categoryOptionsFragment.cloneNode(true));
+            } else { // それ以外は効果用
+                select.dataset.type = 'effect';
+                select.appendChild(effectOptionsFragment.cloneNode(true));
+            }
             select.value = "効果なし";
             
             select.addEventListener('change', () => {
@@ -197,18 +220,24 @@
     }
 
     function updateAndSort() {
-        const selects = container.querySelectorAll('select');
-        const currentValues = Array.from(selects).map(select => select.value);
+        // カテゴリーはソートせず、効果1～5のみをソート対象とする
+        const effectSelects = Array.from(container.querySelectorAll('select[data-type="effect"]'));
+        const currentEffectValues = effectSelects.map(select => select.value);
 
-        currentValues.sort((a, b) => (ALL_EFFECTS_DATA[b] || 0) - (ALL_EFFECTS_DATA[a] || 0));
+        currentEffectValues.sort((a, b) => (ALL_EFFECTS_DATA[b] || 0) - (ALL_EFFECTS_DATA[a] || 0));
 
-        let total = 0;
-        selects.forEach((select, index) => {
-            const newValue = currentValues[index];
+        effectSelects.forEach((select, index) => {
+            const newValue = currentEffectValues[index];
             if (select.value !== newValue) {
                  select.value = newValue;
             }
-            total += ALL_EFFECTS_DATA[newValue] || 0;
+        });
+        
+        // 合計スコアは全てのセレクトボックスを対象に計算
+        let total = 0;
+        const allSelects = container.querySelectorAll('select');
+        allSelects.forEach(select => {
+            total += ALL_EFFECTS_DATA[select.value] || 0;
         });
 
         document.getElementById('totalScore').textContent = `合計点数: ${total.toFixed(1)}`;
@@ -216,8 +245,10 @@
 
     function saveCurrentBelt() {
         const selects = container.querySelectorAll('select');
-        const effects = Array.from(selects).map(select => select.value).filter(v => v !== "効果なし");
-        if (effects.length === 0) return;
+        const effects = Array.from(selects).map(select => select.value);
+        
+        // すべてが「効果なし」の場合は保存しない
+        if (effects.every(v => v === "効果なし")) return;
 
         const savedBelts = getSavedBelts();
         
@@ -269,13 +300,16 @@
 
             const beltInfo = document.createElement('div');
             beltInfo.className = 'saved-belt-info';
+            // "効果なし"を除外して表示
+            const validEffects = effects.filter(e => e !== '効果なし');
             beltInfo.addEventListener('click', () => loadBelt(effects));
+
 
             const scoreDisplay = document.createElement('strong');
             scoreDisplay.textContent = `合計点数: ${score.toFixed(1)}`;
             beltInfo.appendChild(scoreDisplay);
 
-            effects.forEach(effect => {
+            validEffects.forEach(effect => {
                 const effectSpan = document.createElement('span');
                 effectSpan.textContent = effect;
                 beltInfo.appendChild(effectSpan);
@@ -324,12 +358,9 @@
             }
         });
         
-        selects.forEach(select => select.value = "効果なし");
-        
-        effects.forEach((effect, index) => {
-            if (selects[index]) {
-                selects[index].value = effect;
-            }
+        selects.forEach((select, index) => {
+            // 保存されたデータに合わせて値を設定。データがない場合は"効果なし"
+            select.value = effects[index] || "効果なし";
         });
         
         updateAndSort();
@@ -338,8 +369,9 @@
 
     function deleteBelt(effectsToDelete) {
         let savedBelts = getSavedBelts();
-        const effectsToDeleteStr = JSON.stringify(effectsToDelete.sort());
-        const indexToDelete = savedBelts.findIndex(belt => JSON.stringify(belt.sort()) === effectsToDeleteStr);
+        // sort()を削除し、保存された順序のまま比較
+        const effectsToDeleteStr = JSON.stringify(effectsToDelete);
+        const indexToDelete = savedBelts.findIndex(belt => JSON.stringify(belt) === effectsToDeleteStr);
 
         if (indexToDelete > -1) {
             savedBelts.splice(indexToDelete, 1);
@@ -372,6 +404,7 @@
 
         updateDisplay();
     });
+    // ▲ここまで修正▲
   </script>
 </body>
 </html>
