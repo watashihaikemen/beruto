@@ -73,6 +73,7 @@
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
     .modal-content { background-color: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 650px; max-height: 85vh; overflow-y: auto; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
     .modal-content h2 { margin-top: 0; }
+    #sealedCount { font-size: 1rem; color: #555; font-weight: normal; margin-left: 10px; }
     .modal-actions { text-align: right; margin-top: 20px; }
     .modal-actions button { margin-left: 10px; padding: 8px 15px; cursor: pointer; border-radius: 5px; border: 1px solid #ccc; }
     #saveSealSettingsButton { background-color: #007bff; color: white; border-color: #007bff;}
@@ -105,8 +106,8 @@
 
   <div id="sealModal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
-      <h2>封印効果の管理</h2>
-      <p>封印したい効果グループにチェックを入れてください。チェックした効果は、効果選択のプルダウンに表示されなくなります。</p>
+      <h2>封印効果の管理<span id="sealedCount"></span></h2>
+      <p>封印したい効果にチェックを入れてください。チェックした効果は、効果選択のプルダウンに表示されなくなります。選択後、設定を保存ボタンを押してください。</p>
       <div id="sealGroupsContainer"></div>
       <div class="modal-actions">
         <button id="cancelSealSettingsButton">キャンセル</button>
@@ -154,58 +155,52 @@
     const sealGroupsContainer = document.getElementById('sealGroupsContainer');
     const saveSealSettingsButton = document.getElementById('saveSealSettingsButton');
     const cancelSealSettingsButton = document.getElementById('cancelSealSettingsButton');
+    const sealedCountElement = document.getElementById('sealedCount'); // 追加
 
     // === 封印機能関連 ===
-    /**
-     * 封印可能な効果グループを生成し、価値（スコア）の高い順に並べ替える
-     * @change v2: 五十音順ではなく、効果の価値が高い順にソートするように変更
-     */
-    function generateSealableGroups() {
-        const groupsWithScores = [];
-
-        // 基本効果グループ
-        groupsWithScores.push({ group: 'こうげき力+?', score: ALL_EFFECTS_DATA['こうげき力+25'] });
-        groupsWithScores.push({ group: 'こうげき魔力と回復魔力+?', score: ALL_EFFECTS_DATA['こうげき魔力と回復魔力+50'] });
-        groupsWithScores.push({ group: '会心率と呪文暴走率+?%', score: ALL_EFFECTS_DATA['会心率と呪文暴走率+2.0%'] });
-
-        // 武器＋属性グループ
-        WEAPON_NAMES.forEach(weapon => {
-            const weaponBaseScore = WEAPON_EFFECTS[weapon];
-            ELEMENTS.forEach(element => {
-                groupsWithScores.push({
-                    group: `${weapon}装備時 ${element}の攻撃ダメージ+?%`,
-                    score: weaponBaseScore + 3 // 最大ダメージ+15%時のスコア
-                });
-            });
-        });
-        
-        // 種族特攻グループ
-        Object.keys(MONSTER_TYPES).forEach(type => {
-            const monsterBaseScore = MONSTER_TYPES[type];
-            groupsWithScores.push({
-                group: `${type}にダメージ+?%`,
-                score: monsterBaseScore + 3 // 最大ダメージ+12%時のスコア
-            });
-        });
-
-        // その他グループ
-        groupsWithScores.push({ group: '盾装備で開戦時○○系', score: ALL_EFFECTS_DATA['盾装備で開戦時○○系'] });
-
-        // スコアで降順ソート。スコアが同じなら名前(五十音順)でソート
-        groupsWithScores.sort((a, b) => {
-            if (b.score !== a.score) {
-                return b.score - a.score;
-            }
-            return a.group.localeCompare(b.group, 'ja');
-        });
-
-        sealableGroups = groupsWithScores.map(item => item.group);
-    }
-
-
+    function generateSealableGroups() { /* 省略 (変更なし) */ }
     function getSealedGroups() { /* 省略 (変更なし) */ }
     function isEffectSealed(effect, sealedGroups) { /* 省略 (変更なし) */ }
-    function populateSealModal() { /* 省略 (変更なし) */ }
+    
+    /**
+     * 封印モーダル内の封印数を更新する
+     */
+    function updateSealedCount() {
+        if (!sealableGroups || sealableGroups.length === 0) return;
+        const sealedCount = sealGroupsContainer.querySelectorAll('input[type="checkbox"]:checked').length;
+        const totalCount = sealableGroups.length;
+        sealedCountElement.textContent = `(${sealedCount} / ${totalCount} 件 封印中)`;
+    }
+
+    /**
+     * 封印設定モーダルにチェックボックスを生成する
+     */
+    function populateSealModal() {
+        sealGroupsContainer.innerHTML = '';
+        const sealedGroups = getSealedGroups();
+        
+        sealableGroups.forEach(group => {
+            const div = document.createElement('div');
+            div.className = 'seal-group';
+            const label = document.createElement('label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = group;
+            checkbox.checked = sealedGroups.includes(group);
+            
+            // チェック状態が変更されたらカウンターを更新
+            checkbox.addEventListener('change', updateSealedCount);
+
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(group));
+            div.appendChild(label);
+            sealGroupsContainer.appendChild(div);
+        });
+
+        // 初期表示時のカウンターを更新
+        updateSealedCount();
+    }
+    
     function saveSealSettings() { /* 省略 (変更なし) */ }
 
     // === オプションリストの管理 ===
@@ -233,10 +228,11 @@
     function createAllEffectsData(){const effectsData={"効果なし":-30,"こうげき力+15":15,"こうげき力+20":21.8,"こうげき力+25":22,"こうげき魔力と回復魔力+30":14.9,"こうげき魔力と回復魔力+40":21.7,"こうげき魔力と回復魔力+50":21.9,"会心率と呪文暴走率+1.0%":14.8,"会心率と呪文暴走率+1.5%":21.7,"会心率と呪文暴走率+2.0%":21.8,"盾装備で開戦時○○系":0.05};const newEffects={"汎用ベルト (カテゴリー用)":40000,"保留中のベルト (カテゴリー用)":6000,"取り敢えず収納 (カテゴリー用)":4000};let categoryScore=38000;WEAPON_NAMES.forEach(weapon=>{newEffects[`${weapon}用ベルト (カテゴリー用)`]=categoryScore;categoryScore-=2000;});for(const weapon in WEAPON_EFFECTS){const baseScore=WEAPON_EFFECTS[weapon];for(const element of ELEMENTS){for(const percentage of[12,13,14,15]){effectsData[`${weapon}装備時 ${element}の攻撃ダメージ+${percentage}%`]=baseScore+(percentage-12);}}}
     for(const type in MONSTER_TYPES){const baseScore=MONSTER_TYPES[type];for(let i=0;i<4;i++){effectsData[`${type}にダメージ+${9+i}%`]=baseScore+i;}}
     return{...newEffects,...effectsData};}
+    function generateSealableGroups(){const groupsWithScores=[];groupsWithScores.push({group:'こうげき力+?',score:ALL_EFFECTS_DATA['こうげき力+25']});groupsWithScores.push({group:'こうげき魔力と回復魔力+?',score:ALL_EFFECTS_DATA['こうげき魔力と回復魔力+50']});groupsWithScores.push({group:'会心率と呪文暴走率+?%',score:ALL_EFFECTS_DATA['会心率と呪文暴走率+2.0%']});WEAPON_NAMES.forEach(weapon=>{const weaponBaseScore=WEAPON_EFFECTS[weapon];ELEMENTS.forEach(element=>{groupsWithScores.push({group:`${weapon}装備時 ${element}の攻撃ダメージ+?%`,score:weaponBaseScore+3});});});Object.keys(MONSTER_TYPES).forEach(type=>{const monsterBaseScore=MONSTER_TYPES[type];groupsWithScores.push({group:`${type}にダメージ+?%`,score:monsterBaseScore+3});});groupsWithScores.push({group:'盾装備で開戦時○○系',score:ALL_EFFECTS_DATA['盾装備で開戦時○○系']});groupsWithScores.sort((a,b)=>{if(b.score!==a.score){return b.score-a.score;}
+    return a.group.localeCompare(b.group,'ja');});sealableGroups=groupsWithScores.map(item=>item.group);}
     function createFilters(){const filters={'all':{min:-Infinity,max:Infinity},'general':{min:39849,max:40499},'pending':{min:5849,max:7848},'storage':{min:3849,max:5848}};let categoryScore=38000;WEAPON_NAMES.forEach(weapon=>{const nextCategoryScore=categoryScore-2000;filters[weapon]={min:nextCategoryScore+1849,max:categoryScore+1848};categoryScore-=2000;});return filters;}
     function getSealedGroups(){const sealed=localStorage.getItem(SEALED_EFFECTS_KEY);return sealed?JSON.parse(sealed):[];}
     function isEffectSealed(effect,sealedGroups){if(!sealedGroups||sealedGroups.length===0)return false;return sealedGroups.some(groupPattern=>{const basePattern=groupPattern.replace(/\+\?%?/,'').replace('○○系','');return effect.startsWith(basePattern);});}
-    function populateSealModal(){sealGroupsContainer.innerHTML='';const sealedGroups=getSealedGroups();sealableGroups.forEach(group=>{const div=document.createElement('div');div.className='seal-group';const label=document.createElement('label');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=group;checkbox.checked=sealedGroups.includes(group);label.appendChild(checkbox);label.appendChild(document.createTextNode(group));div.appendChild(label);sealGroupsContainer.appendChild(div);});}
     function saveSealSettings(){const checkboxes=sealGroupsContainer.querySelectorAll('input[type="checkbox"]:checked');const sealedGroups=Array.from(checkboxes).map(cb=>cb.value);localStorage.setItem(SEALED_EFFECTS_KEY,JSON.stringify(sealedGroups));sealModal.style.display='none';updateAllSelectOptions();}
     function rebuildOptionFragments(){fullOptionsFragment=document.createDocumentFragment();categoryOptionsFragment=document.createDocumentFragment();effectOptionsFragment=document.createDocumentFragment();const sealedGroups=getSealedGroups();for(let effect in ALL_EFFECTS_DATA){if(isEffectSealed(effect,sealedGroups))continue;const option=document.createElement('option');option.value=effect;option.textContent=effect;fullOptionsFragment.appendChild(option.cloneNode(true));if(effect.includes('(カテゴリー用)')||effect==='効果なし'){categoryOptionsFragment.appendChild(option.cloneNode(true));}
     if(!effect.includes('(カテゴリー用)')||effect==='効果なし'){effectOptionsFragment.appendChild(option.cloneNode(true));}}}
