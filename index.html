@@ -112,15 +112,15 @@
         
         // 新しいカテゴリー定義
         const newEffects = {
-            "取り敢えず収納 (カテゴリー用)": 500,
-            "汎用ベルト (カテゴリー用)": 10000,
-            "保留中のベルト (カテゴリー用)": 2000
+            "汎用ベルト (カテゴリー用)": 40000,
+            "保留中のベルト (カテゴリー用)": 6000,
+            "取り敢えず収納 (カテゴリー用)": 4000
         };
         
-        let categoryScore = 9000;
+        let categoryScore = 38000; // 武器種の開始スコア
         WEAPON_NAMES.forEach(weapon => {
             newEffects[`${weapon}用ベルト (カテゴリー用)`] = categoryScore;
-            categoryScore -= 100; // 各武器カテゴリーにユニークなスコア範囲を割り当て
+            categoryScore -= 2000; // 各武器カテゴリーに2000点差をつける
         });
 
         const elements = ["炎", "氷", "風", "雷", "土", "闇", "光"];
@@ -152,14 +152,21 @@
     function createFilters() {
         const filters = {
             'all':       { min: -Infinity, max: Infinity },
-            'general':   { min: 9800, max: 10200 }, // 10000
-            'pending':   { min: 1800, max: 2200 },  // 2000
-            'storage':   { min: 300,  max: 700 }    // 500
+            'general':   { min: 39849, max: 40499 }, // 汎用ベルト(40000点)用
+            'pending':   { min: 5849, max: 7848 },  // 保留中(6000点)用
+            'storage':   { min: 3849, max: 5848 }    // 収納(4000点)用
         };
-        let categoryScore = 9000;
+        let categoryScore = 38000; // 武器種の開始スコア
         WEAPON_NAMES.forEach(weapon => {
-            filters[weapon] = { min: categoryScore - 200, max: categoryScore + 200 };
-            categoryScore -= 100;
+            // 各武器フィルタは、(次のカテゴリのスコア + α) から (現在のカテゴリのスコア + β) までの範囲を持つ
+            // 例: 片手剣(38000)のフィルタは [37849, 39848]
+            //     両手剣(36000)のフィルタは [35849, 37848]
+            const nextCategoryScore = categoryScore - 2000;
+            filters[weapon] = {
+                min: nextCategoryScore + 1849,
+                max: categoryScore + 1848
+            };
+            categoryScore -= 2000;
         });
         return filters;
     }
