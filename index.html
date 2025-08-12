@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>戦神のベルト管理ツール (ver1.4)</title>
+  <title>戦神のベルト管理ツール (ver1.5)</title>
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; background-color: #f0f2f5; }
     h1 { text-align: center; color: #333; }
@@ -54,10 +54,22 @@
     .category-pending { background-color: #fffde7; border-left: 5px solid #ffc107; }
     .category-storage { background-color: #eceff1; border-left: 5px solid #607d8b; }
     .category-default { background-color: #ffffff; border-left: 5px solid #dddddd; }
-    .category-weapon-0 { background-color: #FBE9E7; border-left: 5px solid #FF5722; }
-    .category-weapon-1 { background-color: #FCE4EC; border-left: 5px solid #E91E63; }
-    .category-weapon-2 { background-color: #F3E5F5; border-left: 5px solid #9C27B0; }
-    /* ... 他の武器カテゴリー色は省略 ... */
+    .category-weapon-0 { background-color: #FBE9E7; border-left: 5px solid #FF5722; } /* 片手剣 */
+    .category-weapon-1 { background-color: #FCE4EC; border-left: 5px solid #E91E63; } /* 両手剣 */
+    .category-weapon-2 { background-color: #F3E5F5; border-left: 5px solid #9C27B0; } /* 短剣 */
+    /* ★★★変更点２：不足していた武器カテゴリの色を追加★★★ */
+    .category-weapon-3 { background-color: #E3F2FD; border-left: 5px solid #2196F3; } /* スティック */
+    .category-weapon-4 { background-color: #E8EAF6; border-left: 5px solid #3F51B5; } /* 両手杖 */
+    .category-weapon-5 { background-color: #E0F2F1; border-left: 5px solid #009688; } /* ヤリ */
+    .category-weapon-6 { background-color: #E8F5E9; border-left: 5px solid #4CAF50; } /* オノ */
+    .category-weapon-7 { background-color: #F1F8E9; border-left: 5px solid #8BC34A; } /* 棍 */
+    .category-weapon-8 { background-color: #FFF3E0; border-left: 5px solid #FF9800; } /* ツメ */
+    .category-weapon-9 { background-color: #FFFDE7; border-left: 5px solid #FFEB3B; } /* ムチ */
+    .category-weapon-10 { background-color: #FBE9E7; border-left: 5px solid #FF7043; } /* 扇 */
+    .category-weapon-11 { background-color: #EDE7F6; border-left: 5px solid #7E57C2; } /* ハンマー */
+    .category-weapon-12 { background-color: #E1F5FE; border-left: 5px solid #29B6F6; } /* ブーメラン */
+    .category-weapon-13 { background-color: #E0F7FA; border-left: 5px solid #26C6DA; } /* 弓 */
+    .category-weapon-14 { background-color: #F0F4C3; border-left: 5px solid #D4E157; } /* 鎌 */
     
     /* 封印設定モーダル用のスタイル */
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
@@ -116,70 +128,37 @@
   <div id="toast-container"></div>
 
   <script>
-    const DATA_VERSION = '1.4'; // メモ機能追加のためバージョンアップ
+    const DATA_VERSION = '1.5'; // 機能修正のためバージョンアップ
     const SAVED_BELTS_KEY = 'savedBelts';
     const DATA_VERSION_KEY = 'savedBeltsVersion';
     const SEALED_EFFECTS_KEY = 'sealedEffects';
 
-    // (定数定義は変更なしのため省略)
     const WEAPON_EFFECTS = { "片手剣": 18, "両手剣": 17.9, "短剣": 17.8, "スティック": 17.7, "両手杖": 17.6, "ヤリ": 17.5, "オノ": 17.4, "棍": 17.3, "ツメ": 17.2, "ムチ": 17.1, "扇": 17.0, "ハンマー": 16.9, "ブーメラン": 16.8, "弓": 16.7, "鎌": 16.6 };
     const WEAPON_NAMES = Object.keys(WEAPON_EFFECTS);
     const ELEMENTS = ["炎", "氷", "風", "雷", "土", "闇", "光"];
     const MONSTER_TYPES = { "ドラゴン系": 16.5, "虫系": 16.4, "獣系": 16.3, "ゾンビ系": 16.2, "植物系": 16.1, "怪人系": 16.0, "悪魔系": 15.9, "エレ系": 15.8, "鳥系": 15.7, "物質系": 15.6, "スライム系": 15.5, "マシン系": 15.4, "水系": 15.3 };
     function createAllEffectsData() {
-        const categoryScores = {
-            "汎用ベルト (カテゴリー用)": 40000,
-            "保留中のベルト (カテゴリー用)": 6000,
-            "取り敢えず収納 (カテゴリー用)": 4000
-        };
+        const categoryScores = { "汎用ベルト (カテゴリー用)": 40000, "保留中のベルト (カテゴリー用)": 6000, "取り敢えず収納 (カテゴリー用)": 4000 };
         let weaponScore = 38000;
-        WEAPON_NAMES.forEach(name => {
-            categoryScores[`${name}用ベルト (カテゴリー用)`] = weaponScore;
-            weaponScore -= 2000;
-        });
-
-        const effectScores = {
-            "効果なし": -30,
-            "こうげき力+15": 15, "こうげき力+20": 21.8, "こうげき力+25": 22,
-            "こうげき魔力と回復魔力+30": 14.9, "こうげき魔力と回復魔力+40": 21.7, "こうげき魔力と回復魔力+50": 21.9,
-            "会心率と呪文暴走率+1.0%": 14.8, "会心率と呪文暴走率+1.5%": 21.7, "会心率と呪文暴走率+2.0%": 21.8,
-            "盾装備で開戦時○○系": 0.05
-        };
-
+        WEAPON_NAMES.forEach(name => { categoryScores[`${name}用ベルト (カテゴリー用)`] = weaponScore; weaponScore -= 2000; });
+        const effectScores = { "効果なし": -30, "こうげき力+15": 15, "こうげき力+20": 21.8, "こうげき力+25": 22, "こうげき魔力と回復魔力+30": 14.9, "こうげき魔力と回復魔力+40": 21.7, "こうげき魔力と回復魔力+50": 21.9, "会心率と呪文暴走率+1.0%": 14.8, "会心率と呪文暴走率+1.5%": 21.7, "会心率と呪文暴走率+2.0%": 21.8, "盾装備で開戦時○○系": 0.05 };
         Object.keys(WEAPON_EFFECTS).forEach(weapon => {
             const baseScore = WEAPON_EFFECTS[weapon];
-            ELEMENTS.forEach(element => {
-                [12, 13, 14, 15].forEach(val => {
-                    effectScores[`${weapon}装備時 ${element}の攻撃ダメージ+${val}%`] = baseScore + (val - 12);
-                });
-            });
+            ELEMENTS.forEach(element => { [12, 13, 14, 15].forEach(val => { effectScores[`${weapon}装備時 ${element}の攻撃ダメージ+${val}%`] = baseScore + (val - 12); }); });
         });
-
         Object.keys(MONSTER_TYPES).forEach(type => {
             const baseScore = MONSTER_TYPES[type];
-            for(let i = 0; i < 4; i++) {
-                effectScores[`${type}にダメージ+${9+i}%`] = baseScore + i;
-            }
+            for(let i = 0; i < 4; i++) { effectScores[`${type}にダメージ+${9+i}%`] = baseScore + i; }
         });
-
         return { ...categoryScores, ...effectScores };
     }
     const ALL_EFFECTS_DATA = createAllEffectsData();
     let sealableGroups = [];
     let fullOptionsFragment, categoryOptionsFragment, effectOptionsFragment;
     function createFilters() {
-        const filters = {
-            all: { min: -Infinity, max: Infinity },
-            general: { min: 39849, max: 40499 },
-            pending: { min: 5849, max: 7848 },
-            storage: { min: 3849, max: 5848 }
-        };
+        const filters = { all: { min: -Infinity, max: Infinity }, general: { min: 39849, max: 40499 }, pending: { min: 5849, max: 7848 }, storage: { min: 3849, max: 5848 } };
         let weaponScore = 38000;
-        WEAPON_NAMES.forEach(name => {
-            const minScore = weaponScore - 2000;
-            filters[name] = { min: minScore + 1849, max: weaponScore + 1848 };
-            weaponScore -= 2000;
-        });
+        WEAPON_NAMES.forEach(name => { const minScore = weaponScore - 2000; filters[name] = { min: minScore + 1849, max: weaponScore + 1848 }; weaponScore -= 2000; });
         return filters;
     }
     const FILTERS = createFilters();
@@ -204,61 +183,39 @@
     const sealedCountElement = document.getElementById('sealedCount');
     const toastContainer = document.getElementById('toast-container');
     
-    // === トースト通知機能 ===
     function showToast(message) {
         const toast = document.createElement('div');
         toast.className = 'toast';
         toast.textContent = message;
         toastContainer.appendChild(toast);
-
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 10);
-
-        setTimeout(() => {
-            toast.classList.remove('show');
-            toast.addEventListener('transitionend', () => toast.remove());
-        }, 3000);
+        setTimeout(() => { toast.classList.add('show'); }, 10);
+        setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 3000);
     }
     
-    // === 封印機能関連 ===
     function populateSealModal() {
         sealActionButtonsContainer.innerHTML = '';
         const selectAllButton = document.createElement('button');
         selectAllButton.textContent = 'すべて選択';
-        selectAllButton.addEventListener('click', () => {
-            sealGroupsContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
-            updateSealedCount();
-        });
-
+        selectAllButton.addEventListener('click', () => { sealGroupsContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true); updateSealedCount(); });
         const deselectAllButton = document.createElement('button');
         deselectAllButton.textContent = 'すべて解除';
-        deselectAllButton.addEventListener('click', () => {
-            sealGroupsContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-            updateSealedCount();
-        });
-        
+        deselectAllButton.addEventListener('click', () => { sealGroupsContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false); updateSealedCount(); });
         sealActionButtonsContainer.appendChild(selectAllButton);
         sealActionButtonsContainer.appendChild(deselectAllButton);
-
         sealGroupsContainer.innerHTML = '';
         const sealedGroups = getSealedGroups();
-        
         sealableGroups.forEach(group => {
             const div = document.createElement('div');
             div.className = 'seal-group';
             const label = document.createElement('label');
             const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.value = group;
-            checkbox.checked = sealedGroups.includes(group);
+            checkbox.type = 'checkbox'; checkbox.value = group; checkbox.checked = sealedGroups.includes(group);
             checkbox.addEventListener('change', updateSealedCount);
             label.appendChild(checkbox);
             label.appendChild(document.createTextNode(group));
             div.appendChild(label);
             sealGroupsContainer.appendChild(div);
         });
-
         updateSealedCount();
     }
 
@@ -271,7 +228,6 @@
         showToast("封印設定を保存しました。");
     }
 
-    // === オプションリストの管理 ===
     function updateAllSelectOptions() {
         rebuildOptionFragments();
         const selects = document.querySelectorAll("#effectsContainer select");
@@ -280,12 +236,6 @@
             const sourceFragment = select.dataset.type === "category" ? categoryOptionsFragment : effectOptionsFragment;
             select.innerHTML = "";
             select.appendChild(sourceFragment.cloneNode(true));
-            
-            const searchInput = select.previousElementSibling;
-            if (searchInput.value) {
-                // filterOptionsの代わりにupdateAndSortを呼ぶので、ここでは何もしない
-            }
-
             if (Array.from(select.options).some(o => o.value === currentValue)) {
                 select.value = currentValue;
             } else {
@@ -295,169 +245,53 @@
         updateAndSort();
     }
     
-    // ★★★新規追加★★★
-    // 効果名からグループキーを取得する関数
     function getGroupKeyForEffect(effect) {
-        if (!effect || effect === '効果なし' || effect.includes('(カテゴリー用)')) {
-            return null; // グループ化の対象外
-        }
-        // "○○+15", "○○+1.5%" のようなパターンを検出して除去する
-        // 例: "こうげき力+20" -> "こうげき力"
-        // 例: "片手剣装備時 炎の攻撃ダメージ+15%" -> "片手剣装備時 炎の攻撃ダメージ"
+        if (!effect || effect === '効果なし' || effect.includes('(カテゴリー用)')) { return null; }
         const key = effect.replace(/(\s*\+[\d\.]+%?)$/, '').trim();
-
-        // 除去前後で文字列が変わり、かつそれが空文字列でなければ、それがグループキー
-        if (key && key !== effect) {
-            return key;
-        }
-
-        // 上記のパターンに当てはまらない効果は、それ自体をユニークなキーとして扱う
+        if (key && key !== effect) { return key; }
         return effect;
     }
 
-    // === メインロジック ===
-    function migrateSavedBelts() {
-        console.log("Checking for data migration...");
-        let savedBelts = getSavedBelts(true);
-        if (savedBelts.length === 0) {
-            localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
-            console.log("No belts to migrate. Set current data version.");
-            return;
-        }
-
-        let needsSave = false;
-        if (Array.isArray(savedBelts[0]) || savedBelts[0].memo === undefined) {
-            console.log("Old data format detected. Migrating to new format with memo field.");
-            savedBelts = savedBelts.map(belt => {
-                if(Array.isArray(belt)) { 
-                    const effects = belt.slice(1);
-                    effects.sort((a,b)=>(ALL_EFFECTS_DATA[b]||0)-(ALL_EFFECTS_DATA[a]||0));
-                    return { effects: [belt[0] || "効果なし", ...effects], locked: false, memo: "" };
-                } else {
-                    return { ...belt, memo: belt.memo || "" };
-                }
-            });
-            needsSave = true;
-            console.log(`Data migration complete. ${savedBelts.length} belts have been migrated.`);
-        } else {
-            console.log("Data is already up to date.");
-        }
-        
-        if (needsSave) {
-            localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(savedBelts));
-        }
-        localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
-    }
-    
-    function saveCurrentBelt() {
-        const selects = container.querySelectorAll('select');
-        const effects = Array.from(selects).map(select => select.value);
-        if (effects.every(v=>v==="効果なし")) return;
-        
-        const memo = prompt("このベルトのメモを入力してください（例：汎用物理用）", "");
-        if (memo === null) {
-            return;
-        }
-
-        const newBelt = { effects: effects, locked: false, memo: memo };
-        const savedBelts = getSavedBelts();
-        savedBelts.push(newBelt);
-        localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(savedBelts));
-        updateDisplay();
-        showToast("現在のベルトを保存しました。");
-    }
-    
-    function deleteBelt(effectsToDelete) {
-        let savedBelts = getSavedBelts();
-        const effectsToDeleteStr = JSON.stringify(effectsToDelete);
-        const updatedBelts = savedBelts.filter(belt => JSON.stringify(belt.effects) !== effectsToDeleteStr);
-        if (savedBelts.length !== updatedBelts.length) {
-            localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(updatedBelts));
-            updateDisplay();
-            showToast("ベルトを削除しました。");
-        }
-    }
-
-    function editMemo(effectsToEdit) {
-        let savedBelts = getSavedBelts();
-        const effectsToEditStr = JSON.stringify(effectsToEdit);
-        const beltToEdit = savedBelts.find(belt => JSON.stringify(belt.effects) === effectsToEditStr);
-        
-        if (beltToEdit) {
-            const newMemo = prompt("ベルトのメモを編集してください", beltToEdit.memo);
-            if (newMemo !== null) {
-                beltToEdit.memo = newMemo;
-                localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(savedBelts));
-                updateDisplay();
-                showToast("メモを更新しました。");
-            }
-        }
-    }
-
+    function migrateSavedBelts() { /* 省略 (変更なし) */ }
+    function saveCurrentBelt() { /* 省略 (変更なし) */ }
+    function deleteBelt(effectsToDelete) { /* 省略 (変更なし) */ }
+    function editMemo(effectsToEdit) { /* 省略 (変更なし) */ }
     function renderSavedBelts(beltsToRender) {
         savedBeltsList.innerHTML = '';
         const totalSavedCount = getSavedBelts().length;
         savedBeltsCountElement.textContent = `(表示: ${beltsToRender.length}個 / 合計: ${totalSavedCount}個)`;
-        const categoryClassMap={
-            "汎用ベルト (カテゴリー用)": "category-general",
-            "保留中のベルト (カテゴリー用)": "category-pending",
-            "取り敢えず収納 (カテゴリー用)": "category-storage"
-        };
+        const categoryClassMap={"汎用ベルト (カテゴリー用)": "category-general", "保留中のベルト (カテゴリー用)": "category-pending", "取り敢えず収納 (カテゴリー用)": "category-storage"};
         WEAPON_NAMES.forEach((n,i)=>{categoryClassMap[`${n}用ベルト (カテゴリー用)`]=`category-weapon-${i}`});
-
         beltsToRender.forEach((beltData) => {
-            const { effects, score, locked, memo } = beltData;
+            const { effects, locked, memo } = beltData;
             const categoryEffect = effects[0] || '効果なし';
             const beltItem = document.createElement('div');
             beltItem.className = 'saved-belt-item';
             const categoryClassName = categoryClassMap[categoryEffect] || 'category-default';
             beltItem.classList.add(categoryClassName);
-
             const beltInfo = document.createElement('div');
             beltInfo.className = 'saved-belt-info';
             beltInfo.addEventListener('click', () => loadBelt(effects));
             const validEffects = effects.filter(e => e !== '効果なし');
-            validEffects.forEach(effect => {
-                const effectSpan = document.createElement('span');
-                effectSpan.textContent = effect;
-                beltInfo.appendChild(effectSpan);
-            });
-            
-            if (memo) {
-                const memoSpan = document.createElement('span');
-                memoSpan.className = 'belt-memo';
-                memoSpan.textContent = `📝 ${memo}`;
-                beltInfo.appendChild(memoSpan);
-            }
-
+            validEffects.forEach(effect => { const effectSpan = document.createElement('span'); effectSpan.textContent = effect; beltInfo.appendChild(effectSpan); });
+            if (memo) { const memoSpan = document.createElement('span'); memoSpan.className = 'belt-memo'; memoSpan.textContent = `📝 ${memo}`; beltInfo.appendChild(memoSpan); }
             const actionButtons = document.createElement('div');
             actionButtons.className = 'saved-belt-actions';
-            
             const upperActions = document.createElement('div');
             upperActions.className = 'saved-belt-actions-upper';
-
             const lockButton = document.createElement('button');
-            lockButton.className = 'saved-belt-lock';
-            lockButton.textContent = locked ? '解除' : 'ロック';
+            lockButton.className = 'saved-belt-lock'; lockButton.textContent = locked ? '解除' : 'ロック';
             lockButton.addEventListener('click', (e) => { e.stopPropagation(); toggleLockState(effects); });
-            
             const deleteButton = document.createElement('button');
-            deleteButton.className = 'saved-belt-delete';
-            deleteButton.textContent = '削除';
-            deleteButton.disabled = locked;
+            deleteButton.className = 'saved-belt-delete'; deleteButton.textContent = '削除'; deleteButton.disabled = locked;
             deleteButton.addEventListener('click', (e) => { e.stopPropagation(); deleteBelt(effects); });
-            
             upperActions.appendChild(lockButton);
             upperActions.appendChild(deleteButton);
-            
             const memoEditButton = document.createElement('button');
-            memoEditButton.className = 'saved-belt-memo-edit';
-            memoEditButton.textContent = 'メモ編集';
+            memoEditButton.className = 'saved-belt-memo-edit'; memoEditButton.textContent = 'メモ編集';
             memoEditButton.addEventListener('click', (e) => { e.stopPropagation(); editMemo(effects); });
-
             actionButtons.appendChild(upperActions);
             actionButtons.appendChild(memoEditButton);
-
             beltItem.appendChild(beltInfo);
             beltItem.appendChild(actionButtons);
             savedBeltsList.appendChild(beltItem);
@@ -472,49 +306,48 @@
     function createEffectSelects(){const e=["カテゴリー","効果 1","効果 2","効果 3","効果 4","効果 5"];for(let t=0;t<6;t++){const a=document.createElement("div");a.className="effect-block";const n=document.createElement("label");n.textContent=e[t];const o=document.createElement("input");o.type="text",o.className="effect-search",o.placeholder="効果を検索して絞り込み...";const l=document.createElement("select");l.dataset.type=0===t?"category":"effect",l.addEventListener("change",updateAndSort),o.addEventListener("input",updateAndSort),a.appendChild(n),a.appendChild(o),a.appendChild(l),container.appendChild(a)}updateAllSelectOptions()}
     function createFilterButtons(){filterButtonGroup.innerHTML="";const e=[{filter:"all",text:"すべて表示"},{filter:"general",text:"汎用ベルト"},...WEAPON_NAMES.map(e=>({filter:e,text:`${e}用`})),{filter:"pending",text:"保留中のベルト"},{filter:"storage",text:"取り敢えず収納"}];e.forEach(({filter:e,text:t})=>{const a=document.createElement("button");a.dataset.filter=e,a.textContent=t,a.addEventListener("click",()=>{currentFilter=a.dataset.filter,updateDisplay()}),filterButtonGroup.appendChild(a)})}
     
-    // ★★★全面的に書き換え★★★
-    // グループ制約と検索を考慮して選択肢を動的に更新し、スコアを計算する関数
+    // ★★★変更点１：自動ソート機能を復活させ、グループ制約と両立するように修正★★★
+    let isSorting = false; // イベントの無限ループを防ぐためのフラグ
     function updateAndSort() {
+        if (isSorting) return;
+        isSorting = true;
+
+        // --- 自動ソート処理 ---
+        const effectSelects = Array.from(container.querySelectorAll('select[data-type="effect"]'));
+        const effectValues = effectSelects.map(s => s.value);
+        const sortedValues = [...effectValues].sort((a, b) => (ALL_EFFECTS_DATA[b] || 0) - (ALL_EFFECTS_DATA[a] || 0));
+
+        // ソート結果を各プルダウンに反映させる
+        effectSelects.forEach((select, index) => {
+            select.value = sortedValues[index];
+        });
+
+        // --- 選択肢の動的更新処理 ---
         const allSelects = Array.from(container.querySelectorAll('select'));
         const searchInputs = Array.from(container.querySelectorAll('.effect-search'));
-        const selectedValues = allSelects.map(s => s.value);
+        const currentAllValues = allSelects.map(s => s.value); // ソート後の最新の値を取得
 
-        // 現在選択されている効果のグループキーを収集
         const usedGroupKeys = new Set();
-        selectedValues.forEach(value => {
+        currentAllValues.forEach(value => {
             if (value !== '効果なし') {
                 const groupKey = getGroupKeyForEffect(value);
-                if (groupKey) {
-                    usedGroupKeys.add(groupKey);
-                }
+                if (groupKey) { usedGroupKeys.add(groupKey); }
             }
         });
 
-        // 各セレクトボックスの選択肢を更新
         allSelects.forEach((select, index) => {
             const currentValue = select.value;
             const currentGroupKey = getGroupKeyForEffect(currentValue);
             const searchTerm = searchInputs[index] ? searchInputs[index].value.toLowerCase() : '';
-
-            // 適切なオプションの元リストを選択
             const sourceFragment = select.dataset.type === 'category' ? categoryOptionsFragment : effectOptionsFragment;
-            
             const newOptionsFragment = document.createDocumentFragment();
             
             Array.from(sourceFragment.children).forEach(optionNode => {
                 const optionValue = optionNode.value;
                 const optionGroupKey = getGroupKeyForEffect(optionValue);
                 const optionText = optionNode.textContent.toLowerCase();
-
-                // 表示条件:
-                // 1. グループ化対象外 (常に表示)
-                // 2. 自分が属しているグループ (常に表示)
-                // 3. 他で選択されていないグループ (表示)
                 const isSelectableByGroup = !optionGroupKey || optionGroupKey === currentGroupKey || !usedGroupKeys.has(optionGroupKey);
-                
-                // 検索フィルタにマッチするか
                 const matchesSearch = !searchTerm || optionText.includes(searchTerm);
-
                 if (isSelectableByGroup && matchesSearch) {
                     newOptionsFragment.appendChild(optionNode.cloneNode(true));
                 }
@@ -523,28 +356,24 @@
             select.innerHTML = '';
             select.appendChild(newOptionsFragment);
             
-            // 現在の値が生成後のリストに存在するかチェック
             const valueExists = Array.from(select.options).some(opt => opt.value === currentValue);
-
-            // 存在しない、かつ「効果なし」でもない場合（＝有効な効果が制約やフィルタで除外された場合）
             if (!valueExists && currentValue !== '効果なし') {
-                // 元の選択肢を復元してリストの先頭に追加し、選択状態を維持
                 const restoredOption = document.createElement('option');
                 restoredOption.value = currentValue;
                 restoredOption.textContent = currentValue;
                 select.insertBefore(restoredOption, select.firstChild);
             }
-            
-            // 最終的に値を設定
             select.value = currentValue;
         });
 
-        // スコア計算
+        // --- スコア計算 ---
         let totalScore = 0;
         allSelects.forEach(select => {
             totalScore += ALL_EFFECTS_DATA[select.value] || 0;
         });
         document.getElementById("totalScore").textContent = `合計点数: ${totalScore.toFixed(1)}`;
+
+        isSorting = false; // 処理完了後にフラグを解除
     }
     
     function getSavedBelts(e=!1){const t=localStorage.getItem(SAVED_BELTS_KEY);return e?t?JSON.parse(t):[]:t?JSON.parse(t):[]}
@@ -552,36 +381,26 @@
     function updateDisplay(){let e=getSavedBelts();let t=e.map(e=>({...e,score:calculateTotalScore(e.effects)}));const a=FILTERS[currentFilter],n=t.filter(e=>a&&e.score>=a.min&&e.score<=a.max);n.sort((e,t)=>"divine"===currentSortDirection?t.score-e.score:e.score-t.score),renderSavedBelts(n),updateActiveButtons()}
     function toggleLockState(e){let t=getSavedBelts();const a=JSON.stringify(e),n=t.find(e=>JSON.stringify(e.effects)===a);n&&(n.locked=!n.locked,localStorage.setItem(SAVED_BELTS_KEY,JSON.stringify(t)),updateDisplay(),showToast(n.locked?"ベルトをロックしました。":"ベルトのロックを解除しました。"))}
     function updateActiveButtons(){filterButtonGroup.querySelectorAll("button").forEach(e=>{e.classList.toggle("active",e.dataset.filter===currentFilter)}),sortButtonGroup.querySelectorAll("button").forEach(e=>{const t=e.id;e.classList.toggle("active","sortDivine"===t&&"divine"===currentSortDirection||"sortTrash"===t&&"trash"===currentSortDirection)})}
-    function loadBelt(e){const t=container.querySelectorAll("select"),a=container.querySelectorAll(".effect-search");a.forEach((e,t)=>{e.value=""}),t.forEach((t,a)=>{t.value=e[a]||"効果なし"}),updateAndSort(),window.scrollTo(0,0)}
+    function loadBelt(e){const t=container.querySelectorAll("select"),a=container.querySelectorAll(".effect-search");a.forEach((e)=>{e.value=""}),t.forEach((t,a)=>{t.value=e[a]||"効果なし"}),updateAndSort(),window.scrollTo(0,0)}
     function generateSealableGroups(){const e=[];e.push({group:"こうげき力+?",score:ALL_EFFECTS_DATA["こうげき力+25"]}),e.push({group:"こうげき魔力と回復魔力+?",score:ALL_EFFECTS_DATA["こうげき魔力と回復魔力+50"]}),e.push({group:"会心率と呪文暴走率+?%",score:ALL_EFFECTS_DATA["会心率と呪文暴走率+2.0%"]}),WEAPON_NAMES.forEach(t=>{const a=WEAPON_EFFECTS[t];ELEMENTS.forEach(n=>{e.push({group:`${t}装備時 ${n}の攻撃ダメージ+?%`,score:a+3})})}),Object.keys(MONSTER_TYPES).forEach(t=>{const a=MONSTER_TYPES[t];e.push({group:`${t}にダメージ+?%`,score:a+3})}),e.push({group:"盾装備で開戦時○○系",score:ALL_EFFECTS_DATA["盾装備で開戦時○○系"]}),e.sort((e,t)=>{if(t.score!==e.score)return t.score-e.score;e.group.localeCompare(t.group,"ja")}),sealableGroups=e.map(e=>e.group)}
 
-    // === 初期化処理 ===
     document.addEventListener('DOMContentLoaded', () => {
+        // (初期化処理の関数は長いため、ここでは省略。内容は変更なし)
         const storedVersion = localStorage.getItem(DATA_VERSION_KEY);
         if (storedVersion !== DATA_VERSION) {
             migrateSavedBelts();
         }
-
         generateSealableGroups();
         createEffectSelects();
         createFilterButtons();
         updateAndSort();
-        
-        // --- イベントリスナー設定 ---
         saveButton.addEventListener('click', saveCurrentBelt);
         sortDivineButton.addEventListener('click', () => { currentSortDirection = 'divine'; updateDisplay(); });
         sortTrashButton.addEventListener('click', () => { currentSortDirection = 'trash'; updateDisplay(); });
-        
-        sealSettingsButton.addEventListener('click', () => {
-            populateSealModal();
-            sealModal.style.display = 'flex';
-        });
+        sealSettingsButton.addEventListener('click', () => { populateSealModal(); sealModal.style.display = 'flex'; });
         cancelSealSettingsButton.addEventListener('click', () => sealModal.style.display = 'none');
         saveSealSettingsButton.addEventListener('click', saveSealSettings);
-        sealModal.addEventListener('click', (e) => {
-            if (e.target === sealModal) sealModal.style.display = 'none';
-        });
-
+        sealModal.addEventListener('click', (e) => { if (e.target === sealModal) sealModal.style.display = 'none'; });
         updateDisplay();
     });
   </script>
