@@ -272,11 +272,11 @@
 
         // ★「選択を解除」ボタンを追加
         unlockSelectedButton = document.createElement('button');
-        unlockSelectedButton.textContent = '選択を解除';
+        unlockSelectedButton.textContent = '選択をロック解除';
         unlockSelectedButton.addEventListener('click', unlockSelectedBelts);
 
         deleteSelectedButton = document.createElement('button');
-        deleteSelectedButton.textContent = '選択を削除';
+        deleteSelectedButton.textContent = '選択を削除（ロックを除く）';
         deleteSelectedButton.addEventListener('click', deleteSelectedBelts);
         
         lockAllButton = document.createElement('button');
@@ -285,7 +285,7 @@
 
         // ★「すべて解除」ボタンを追加
         unlockAllButton = document.createElement('button');
-        unlockAllButton.textContent = 'すべて解除';
+        unlockAllButton.textContent = 'すべてロック解除';
         unlockAllButton.addEventListener('click', unlockAllBelts);
 
         deleteAllUnlockedButton = document.createElement('button');
@@ -500,3 +500,4 @@
   </script>
 </body>
 </html>
+
