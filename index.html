@@ -34,8 +34,27 @@
     .belt-selector { flex-shrink: 0; width: 18px; height: 18px; cursor: pointer; }
     .saved-belt-info { cursor: pointer; flex-grow: 1; }
     .saved-belt-info strong { display: none; }
-    .saved-belt-info span { display: block; font-size: 14px; color: #666; margin-top: 4px; }
-    .belt-memo { font-size: 13px !important; color: #007bff !important; font-style: italic; margin-top: 8px !important; }
+
+    /* ★★★変更点：元のspanのスタイルは削除し、新しいクラスで管理します★★★ */
+    .belt-memo { display: block; font-size: 13px !important; color: #007bff !important; font-style: italic; margin-top: 8px !important; }
+
+    /* ★★★変更点：王冠表示と文字ズレ防止のためのスタイルを追加★★★ */
+    .effect-display-line {
+        display: flex;
+        align-items: baseline;
+        margin-top: 4px;
+    }
+    .effect-display-line > span:last-child {
+        font-size: 14px;
+        color: #666;
+    }
+    .crown-container {
+        width: 1.5em; /* 王冠一文字分の幅を確保 */
+        flex-shrink: 0;
+        text-align: center;
+    }
+    /* ★★★変更点ここまで★★★ */
+
     .saved-belt-actions { display: flex; flex-direction: column; flex-shrink: 0; margin-left: 10px; gap: 5px; }
     .saved-belt-actions-upper { display: flex; gap: 5px; }
     .saved-belt-actions button { color: white; border: none; padding: 5px 8px; font-size: 12px; border-radius: 3px; cursor: pointer; }
@@ -52,7 +71,6 @@
     .action-button-group button.active { background-color: #007bff; color: white; border-color: #007bff; }
     .action-button-group button:disabled { background-color: #e9ecef; color: #6c757d; cursor: not-allowed; opacity: 0.7; }
 
-    /* ★★★変更点：UI改善のため、ボタンをグループ化するスタイルを追加★★★ */
     fieldset {
       border: 1px solid #ddd;
       border-radius: 8px;
@@ -73,8 +91,6 @@
     .action-button-group {
         margin-top: 5px; /* legendとの間に少し余白 */
     }
-    /* ★★★変更点ここまで★★★ */
-
 
     #deleteAllUnlockedButton { background-color: #c82333; color: white; border-color: #c82333; }
     #deleteAllUnlockedButton:hover { background-color: #a71d2a; }
@@ -215,6 +231,7 @@
     // === グローバル変数 ===
     let sealableGroups = [];
     let groupKeyDataMap = new Map();
+    let maxEffectInGroupMap = new Map(); // ★★★変更点：最大値効果を保持するMapを追加★★★
     let fullOptionsFragment, categoryOptionsFragment, effectOptionsFragment;
     let currentFilter = 'all';
     let currentSortDirection = 'divine';
@@ -317,6 +334,7 @@
     function toggleLockState(effectsToToggle) { let savedBelts = getSavedBelts(); const effectsToToggleStr = JSON.stringify(effectsToToggle); const beltToToggle = savedBelts.find(belt => JSON.stringify(belt.effects) === effectsToToggleStr); if (beltToToggle) { beltToToggle.locked = !beltToToggle.locked; saveBelts(savedBelts); showToast(beltToToggle.locked ? "ベルトをロックしました。" : "ベルトのロックを解除しました。"); updateDisplay(); } }
 
     // === 表示関連 ===
+    // ★★★変更点：王冠表示のためにHTML生成ロジックを全面的に修正★★★
     function renderSavedBelts(beltsToRender) {
         savedBeltsList.innerHTML = '';
         const totalSavedCount = getSavedBelts().length;
@@ -340,10 +358,21 @@
             beltItem.classList.add(categoryClassMap.get(effects[0]) || 'category-default');
             beltItem.dataset.effectsJson = JSON.stringify(effects);
 
+            const effectsHtml = effects.filter(e => e !== '効果なし').map(effect => {
+                const groupKey = getGroupKeyForEffect(effect);
+                const isMax = groupKey && maxEffectInGroupMap.get(groupKey) === effect;
+                const crownHtml = isMax ? '👑' : '';
+                return `
+                    <div class="effect-display-line">
+                        <span class="crown-container">${crownHtml}</span>
+                        <span>${effect}</span>
+                    </div>`;
+            }).join('');
+
             beltItem.innerHTML = `
                 <input type="checkbox" class="belt-selector">
                 <div class="saved-belt-info">
-                    ${effects.filter(e => e !== '効果なし').map(e => `<span>${e}</span>`).join('')}
+                    ${effectsHtml}
                     ${memo ? `<span class="belt-memo">📝 ${memo}</span>` : ''}
                 </div>
                 <div class="saved-belt-actions">
@@ -359,6 +388,7 @@
         savedBeltsList.appendChild(fragment);
         updateBulkActionButtonsState();
     }
+
 
     // === プルダウン選択肢の生成・更新 ===
     function rebuildOptionFragments() { fullOptionsFragment = document.createDocumentFragment(); categoryOptionsFragment = document.createDocumentFragment(); effectOptionsFragment = document.createDocumentFragment(); const sealedGroups = getSealedGroups(); for (const effectName in ALL_EFFECTS_DATA) { if (isEffectSealed(effectName, sealedGroups)) continue; const option = document.createElement("option"); option.value = effectName; option.textContent = effectName; fullOptionsFragment.appendChild(option.cloneNode(true)); if (effectName.includes("(カテゴリー用)") || effectName === "効果なし") { categoryOptionsFragment.appendChild(option.cloneNode(true)); } if (!effectName.includes("(カテゴリー用)") || effectName === "効果なし") { effectOptionsFragment.appendChild(option.cloneNode(true)); } } }
@@ -461,6 +491,19 @@
         addGroup("盾装備で開戦時○○系", 0.05);
         sealableGroups = Array.from(groupKeyDataMap.values()).sort((a, b) => b.score - a.score || a.group.localeCompare(b.group, 'ja')).map(g => g.group);
     }
+    // ★★★変更点：最大値効果マップを生成する関数を追加★★★
+    function generateMaxEffectMap() {
+        maxEffectInGroupMap.clear();
+        for (const effectName in ALL_EFFECTS_DATA) {
+            const groupKey = getGroupKeyForEffect(effectName);
+            if (!groupKey) continue;
+            const currentScore = ALL_EFFECTS_DATA[effectName];
+            const existingMaxEffectName = maxEffectInGroupMap.get(groupKey);
+            if (!existingMaxEffectName || currentScore > ALL_EFFECTS_DATA[existingMaxEffectName]) {
+                maxEffectInGroupMap.set(groupKey, effectName);
+            }
+        }
+    }
     function createEffectSelects() { const labels = ["カテゴリー", "効果 1", "効果 2", "効果 3", "効果 4", "効果 5"]; labels.forEach((labelText, index) => { const block = document.createElement("div"); block.className = "effect-block"; block.innerHTML = `<label>${labelText}</label><input type="text" class="effect-search" placeholder="効果を検索して絞り込み..."><select data-type="${index === 0 ? "category" : "effect"}"></select>`; container.appendChild(block); }); rebuildOptionFragments(); document.querySelectorAll("#effectsContainer select").forEach(select => { select.appendChild((select.dataset.type === "category" ? categoryOptionsFragment : effectOptionsFragment).cloneNode(true)); }); container.addEventListener('change', e => { if (e.target.tagName === 'SELECT') updateAndSort(); }); container.addEventListener('input', e => { if (e.target.classList.contains('effect-search')) updateAndSort(); }); }
     function createFilterButtons() { filterButtonGroup.innerHTML = ""; [{ filter: "all", text: "すべて表示" }, { filter: "general", text: "汎用ベルト" }, ...WEAPON_NAMES_FOR_CATEGORY.map(name => ({ filter: name, text: `${name}用` })), { filter: "pending", text: "保留中のベルト" }, { filter: "storage", text: "取り敢えず収納" }].forEach(({ filter, text }) => { const button = document.createElement("button"); button.dataset.filter = filter; button.textContent = text; filterButtonGroup.appendChild(button); }); }
     
@@ -529,6 +572,7 @@
         // --- 初期化処理 ---
         migrateSavedBelts();
         generateSealableGroups();
+        generateMaxEffectMap(); // ★★★変更点：最大値マップ生成関数を呼び出し★★★
         createEffectSelects();
         createFilterButtons();
         setupBulkActionButtons();
