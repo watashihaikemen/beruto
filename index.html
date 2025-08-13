@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>戦神のベルト管理ツール 再修正(ver1.8.6 データ更新強化版)</title>
+  <title>戦神のベルト管理ツール 再修正(ver1.8.3 UI改善版)</title>
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; background-color: #f0f2f5; }
     h1 { text-align: center; color: #333; }
@@ -52,6 +52,7 @@
     .action-button-group button.active { background-color: #007bff; color: white; border-color: #007bff; }
     .action-button-group button:disabled { background-color: #e9ecef; color: #6c757d; cursor: not-allowed; opacity: 0.7; }
 
+    /* ★★★変更点：UI改善のため、ボタンをグループ化するスタイルを追加★★★ */
     fieldset {
       border: 1px solid #ddd;
       border-radius: 8px;
@@ -72,6 +73,8 @@
     .action-button-group {
         margin-top: 5px; /* legendとの間に少し余白 */
     }
+    /* ★★★変更点ここまで★★★ */
+
 
     #deleteAllUnlockedButton { background-color: #c82333; color: white; border-color: #c82333; }
     #deleteAllUnlockedButton:hover { background-color: #a71d2a; }
@@ -154,7 +157,7 @@
 
   <script>
     // === 定数定義 ===
-    const DATA_VERSION = '1.8.6'; // ★手動更新機能を追加
+    const DATA_VERSION = '1.8.3';
     const SAVED_BELTS_KEY = 'savedBelts';
     const DATA_VERSION_KEY = 'savedBeltsVersion';
     const SEALED_EFFECTS_KEY = 'sealedEffects';
@@ -178,36 +181,19 @@
             categoryScores[`${name}用ベルト (カテゴリー用)`] = weaponScore;
             weaponScore -= 2000;
         });
-        const effectScores = {
-            "効果なし": -30,
-            "こうげき力+15": 15,
-            "こうげき力+20": 21.8,
-            "👑こうげき力+25": 22,
-            "こうげき魔力と回復魔力+30": 14.9,
-            "こうげき魔力と回復魔力+40": 21.7,
-            "👑こうげき魔力と回復魔力+50": 21.9,
-            "会心率と呪文暴走率+1.0%": 14.8,
-            "会心率と呪文暴走率+1.5%": 21.7,
-            "👑会心率と呪文暴走率+2.0%": 21.8,
-            "盾装備で開戦時○○系": 0.05
-        };
+        const effectScores = { "効果なし": -30, "こうげき力+15": 15, "こうげき力+20": 21.8, "こうげき力+25": 22, "こうげき魔力と回復魔力+30": 14.9, "こうげき魔力と回復魔力+40": 21.7, "こうげき魔力と回復魔力+50": 21.9, "会心率と呪文暴走率+1.0%": 14.8, "会心率と呪文暴走率+1.5%": 21.7, "会心率と呪文暴走率+2.0%": 21.8, "盾装備で開戦時○○系": 0.05 };
         Object.keys(WEAPON_EFFECTS).forEach(weapon => {
             const baseScore = WEAPON_EFFECTS[weapon];
             ELEMENTS.forEach(element => {
                 [12, 13, 14, 15].forEach(val => {
-                    let name = `${weapon}装備時 ${element}の攻撃ダメージ+${val}%`;
-                    if (val === 15) name = `👑${name}`;
-                    effectScores[name] = baseScore + (val - 12);
+                    effectScores[`${weapon}装備時 ${element}の攻撃ダメージ+${val}%`] = baseScore + (val - 12);
                 });
             });
         });
         Object.keys(MONSTER_TYPES).forEach(type => {
             const baseScore = MONSTER_TYPES[type];
             for(let i = 0; i < 4; i++) {
-                const val = 9 + i;
-                let name = `${type}にダメージ+${val}%`;
-                if (val === 12) name = `👑${name}`;
-                effectScores[name] = baseScore + i;
+                effectScores[`${type}にダメージ+${9+i}%`] = baseScore + i;
             }
         });
         return { ...categoryScores, ...effectScores };
@@ -248,15 +234,14 @@
         const cache = new Map();
         const regex = /(\s*\+[\d\.]+%?)$/;
         return (effect) => {
-            const cleanEffect = (typeof effect === 'string' && effect.startsWith('👑')) ? effect.substring(1) : effect;
-            if (cache.has(cleanEffect)) return cache.get(cleanEffect);
-            if (!cleanEffect || cleanEffect === '効果なし' || (typeof cleanEffect === 'string' && cleanEffect.includes('(カテゴリー用)'))) {
-                cache.set(cleanEffect, null);
+            if (cache.has(effect)) return cache.get(effect);
+            if (!effect || effect === '効果なし' || effect.includes('(カテゴリー用)')) {
+                cache.set(effect, null);
                 return null;
             }
-            const key = cleanEffect.replace(regex, '').trim();
-            const result = (key && key !== cleanEffect) ? key : cleanEffect;
-            cache.set(cleanEffect, result);
+            const key = effect.replace(regex, '').trim();
+            const result = (key && key !== effect) ? key : effect;
+            cache.set(effect, result);
             return result;
         };
     })();
@@ -270,49 +255,25 @@
 
     // === ベルトデータ管理 (保存/削除/更新) ===
     function migrateSavedBelts() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const forceMigrationParam = urlParams.get('forcemigration');
-
         const storedVersion = localStorage.getItem(DATA_VERSION_KEY);
-        const beltsToMigrate = getSavedBelts();
-
-        const needsForceMigrationByData = beltsToMigrate.length > 0 && 
-                                          !beltsToMigrate.some(b => b.effects.some(e => typeof e === 'string' && e.startsWith('👑')));
-
-        if (storedVersion === DATA_VERSION && !needsForceMigrationByData && forceMigrationParam !== 'true') {
-            return;
-        }
-        
-        const crownMap = new Map();
-        for (const name in ALL_EFFECTS_DATA) {
-            if (name.startsWith('👑')) crownMap.set(name.substring(1), name);
-        }
-
-        const migratedBelts = beltsToMigrate.map(belt => {
-            let b = belt;
-            if (Array.isArray(b)) b = { effects: b, locked: false, memo: '' };
-            if (typeof b !== 'object' || b === null || !Array.isArray(b.effects)) return null;
-
-            const newEffects = b.effects.map(effect => {
-                if (typeof effect !== 'string') return effect;
-                let e = effect;
-                e = e.replace(/^右手に(片手剣|短剣|スティック|扇|ハンマー|ブーメラン)用ベルト/, '$1用ベルト');
-                e = e.replace(/^(片手剣|短剣|スティック|扇|ハンマー|ブーメラン)装備時/, '右手に$1装備時');
-                return crownMap.get(e) || e;
+        if (storedVersion === DATA_VERSION) return;
+        let savedBelts = getSavedBelts();
+        const migratedBelts = savedBelts.map(belt => {
+            let currentBelt = belt;
+            if (Array.isArray(currentBelt)) currentBelt = { effects: currentBelt, locked: false, memo: '' };
+            if (typeof currentBelt !== 'object' || currentBelt === null || !Array.isArray(currentBelt.effects)) return null;
+            const newEffects = currentBelt.effects.map(effect => {
+                let newEffect = effect;
+                newEffect = newEffect.replace(/^右手に(片手剣|短剣|スティック|扇|ハンマー|ブーメラン)用ベルト/, '$1用ベルト');
+                newEffect = newEffect.replace(/^(片手剣|短剣|スティック|扇|ハンマー|ブーメラン)装備時/, '右手に$1装備時');
+                return newEffect;
             });
-
-            return { effects: newEffects, locked: !!b.locked, memo: b.memo || '' };
+            return { effects: newEffects, locked: !!currentBelt.locked, memo: currentBelt.memo || '' };
         }).filter(Boolean);
-
         saveBelts(migratedBelts);
         localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
-
-        if (beltsToMigrate.length > 0) {
-            console.log(`ベルトデータをver ${DATA_VERSION} に更新しました。`);
-            showToast("データ構造を更新し、最大効果に王冠(👑)を付与しました。");
-        } else if (storedVersion !== DATA_VERSION) {
-            console.log(`データバージョンを ${DATA_VERSION} に設定しました。`);
-        }
+        console.log(`ベルトデータをver ${DATA_VERSION} に更新しました。`);
+        showToast("データ構造を最新版に更新しました。");
     }
 
     function saveCurrentBelt() {
@@ -492,9 +453,9 @@
     function generateSealableGroups() {
         groupKeyDataMap.clear();
         const addGroup = (name, score) => { const key = name.replace(/\+\?%?/, '').trim(); if (!groupKeyDataMap.has(key)) groupKeyDataMap.set(key, { group: name, score: score }); };
-        addGroup("こうげき力+?", ALL_EFFECTS_DATA["👑こうげき力+25"]);
-        addGroup("こうげき魔力と回復魔力+?", ALL_EFFECTS_DATA["👑こうげき魔力と回復魔力+50"]);
-        addGroup("会心率と呪文暴走率+?%", ALL_EFFECTS_DATA["👑会心率と呪文暴走率+2.0%"]);
+        addGroup("こうげき力+?", ALL_EFFECTS_DATA["こうげき力+25"]);
+        addGroup("こうげき魔力と回復魔力+?", ALL_EFFECTS_DATA["こうげき魔力と回復魔力+50"]);
+        addGroup("会心率と呪文暴走率+?%", ALL_EFFECTS_DATA["会心率と呪文暴走率+2.0%"]);
         WEAPON_NAMES.forEach(weapon => { ELEMENTS.forEach(element => { addGroup(`${weapon}装備時 ${element}の攻撃ダメージ+?%`, WEAPON_EFFECTS[weapon] + 3); }); });
         Object.keys(MONSTER_TYPES).forEach(type => addGroup(`${type}にダメージ+?%`, MONSTER_TYPES[type] + 3));
         addGroup("盾装備で開戦時○○系", 0.05);
