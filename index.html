@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>戦神のベルト管理ツール 再修正(ver1.8.3)</title>
+  <title>戦神のベルト管理ツール 再修正(ver1.8.3 UI改善版)</title>
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; background-color: #f0f2f5; }
     h1 { text-align: center; color: #333; }
@@ -47,11 +47,35 @@
     .saved-belt-delete:hover { background-color: #c82333; }
     .saved-belt-delete:disabled { background-color: #6c757d; cursor: not-allowed; opacity: 0.65; }
 
-    .action-button-group { text-align: center; margin-bottom: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .action-button-group { text-align: center; margin-bottom: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
     .action-button-group button { padding: 8px 15px; font-size: 14px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; background-color: #f0f0f0; margin: 0; }
     .action-button-group button.active { background-color: #007bff; color: white; border-color: #007bff; }
     .action-button-group button:disabled { background-color: #e9ecef; color: #6c757d; cursor: not-allowed; opacity: 0.7; }
-    #bulkActionsContainer { border-bottom: 1px solid #ddd; padding-bottom: 15px; }
+
+    /* ★★★変更点：UI改善のため、ボタンをグループ化するスタイルを追加★★★ */
+    fieldset {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px 15px 15px 15px; /* 上、左右、下 */
+      margin-bottom: 15px;
+      background-color: #fafafa;
+    }
+    legend {
+      font-weight: bold;
+      font-size: 0.9em;
+      padding: 0 8px;
+      color: #333;
+    }
+    #bulkActionsContainer {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .action-button-group {
+        margin-top: 5px; /* legendとの間に少し余白 */
+    }
+    /* ★★★変更点ここまで★★★ */
+
+
     #deleteAllUnlockedButton { background-color: #c82333; color: white; border-color: #c82333; }
     #deleteAllUnlockedButton:hover { background-color: #a71d2a; }
 
@@ -95,12 +119,24 @@
 
   <div id="savedBeltsSection">
     <h2>保存されたベルト<span id="savedBeltsCount"></span></h2>
-    <div id="bulkActionsContainer" class="action-button-group"></div>
-    <div id="filterButtonGroup" class="action-button-group"></div>
-    <div class="action-button-group" id="sortButtonGroup">
-      <button id="sortDivine">神ベルト順</button>
-      <button id="sortTrash">ゴミベルト順</button>
-    </div>
+
+    <fieldset>
+      <legend>一括操作</legend>
+      <div id="bulkActionsContainer" class="action-button-group"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>絞り込み</legend>
+      <div id="filterButtonGroup" class="action-button-group"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>並び替え</legend>
+      <div class="action-button-group" id="sortButtonGroup">
+        <button id="sortDivine">神ベルト順</button>
+        <button id="sortTrash">ゴミベルト順</button>
+      </div>
+    </fieldset>
     <div id="savedBeltsList"></div>
   </div>
 
@@ -120,7 +156,6 @@
   <div id="toast-container"></div>
 
   <script>
-    // ★★★変更点：バージョン1.8.3に更新（カテゴリー名修正、データ移行処理強化）★★★
     const DATA_VERSION = '1.8.3';
     const SAVED_BELTS_KEY = 'savedBelts';
     const DATA_VERSION_KEY = 'savedBeltsVersion';
@@ -135,7 +170,7 @@
     // 効果名生成に使うリスト
     const WEAPON_NAMES = Object.keys(WEAPON_EFFECTS);
 
-    // ★★★変更点：カテゴリー名とフィルターは「右手に」を付けない元の表記に戻す★★★
+    // カテゴリーとフィルター用の武器名リスト
     const WEAPON_NAMES_FOR_CATEGORY = [
         "片手剣", "両手剣", "短剣", "スティック", "両手杖", "ヤリ", "オノ", "棍", "ツメ", "ムチ", "扇", "ハンマー", "ブーメラン", "弓", "鎌"
     ];
@@ -146,13 +181,11 @@
     function createAllEffectsData() {
         const categoryScores = { "汎用ベルト (カテゴリー用)": 40000, "保留中のベルト (カテゴリー用)": 6000, "取り敢えず収納 (カテゴリー用)": 4000 };
         let weaponScore = 38000;
-        // ★★★変更点：カテゴリー名生成には WEAPON_NAMES_FOR_CATEGORY を使用★★★
         WEAPON_NAMES_FOR_CATEGORY.forEach(name => {
             categoryScores[`${name}用ベルト (カテゴリー用)`] = weaponScore;
             weaponScore -= 2000;
         });
         const effectScores = { "効果なし": -30, "こうげき力+15": 15, "こうげき力+20": 21.8, "こうげき力+25": 22, "こうげき魔力と回復魔力+30": 14.9, "こうげき魔力と回復魔力+40": 21.7, "こうげき魔力と回復魔力+50": 21.9, "会心率と呪文暴走率+1.0%": 14.8, "会心率と呪文暴走率+1.5%": 21.7, "会心率と呪文暴走率+2.0%": 21.8, "盾装備で開戦時○○系": 0.05 };
-        // 効果名生成は WEAPON_EFFECTS を使うので変更なし
         Object.keys(WEAPON_EFFECTS).forEach(weapon => {
             const baseScore = WEAPON_EFFECTS[weapon];
             ELEMENTS.forEach(element => {
@@ -174,7 +207,6 @@
     function createFilters() {
         const filters = { all: { min: -Infinity, max: Infinity }, general: { min: 39849, max: 40499 }, pending: { min: 5849, max: 7848 }, storage: { min: 3849, max: 5848 } };
         let weaponScore = 38000;
-        // ★★★変更点：フィルター生成には WEAPON_NAMES_FOR_CATEGORY を使用★★★
         WEAPON_NAMES_FOR_CATEGORY.forEach(name => {
             const minScore = weaponScore - 2000;
             filters[name] = { min: minScore + 1849, max: weaponScore + 1848 };
@@ -226,7 +258,6 @@
     function saveSealSettings() { const checkboxes = sealGroupsContainer.querySelectorAll('input[type="checkbox"]:checked'); const sealedGroups = Array.from(checkboxes).map(cb => cb.value); localStorage.setItem(SEALED_EFFECTS_KEY, JSON.stringify(sealedGroups)); sealModal.style.display = 'none'; updateAllSelectOptions(); showToast("封印設定を保存しました。"); }
 
     // === ベルトデータ管理 (保存/削除/更新) ===
-    // ★★★変更点：過去のデータを修正するための移行処理を強化★★★
     function migrateSavedBelts() {
         const storedVersion = localStorage.getItem(DATA_VERSION_KEY);
         if (storedVersion !== DATA_VERSION) {
@@ -251,7 +282,7 @@
                     newEffect = newEffect.replace(/^右手にハンマー用ベルト/, 'ハンマー用ベルト');
                     newEffect = newEffect.replace(/^右手にブーメラン用ベルト/, 'ブーメラン用ベルト');
 
-                    // 効果名を「〇〇装備時」から「右手に〇〇装備時」へ変更（古いデータが残っている場合のため）
+                    // 効果名を「〇〇装備時」から「右手に〇〇装備時」へ変更
                     newEffect = newEffect.replace(/^片手剣装備時/, '右手に片手剣装備時');
                     newEffect = newEffect.replace(/^短剣装備時/, '右手に短剣装備時');
                     newEffect = newEffect.replace(/^スティック装備時/, '右手にスティック装備時');
@@ -356,7 +387,6 @@
         const totalSavedCount = getSavedBelts().length;
         savedBeltsCountElement.textContent = `(表示: ${beltsToRender.length}個 / 合計: ${totalSavedCount}個)`;
         const categoryClassMap = { "汎用ベルト (カテゴリー用)": "category-general", "保留中のベルト (カテゴリー用)": "category-pending", "取り敢えず収納 (カテゴリー用)": "category-storage" };
-        // ★★★変更点：カテゴリー名とclass名を紐付ける際も WEAPON_NAMES_FOR_CATEGORY を使用★★★
         WEAPON_NAMES_FOR_CATEGORY.forEach((name, index) => {
             categoryClassMap[`${name}用ベルト (カテゴリー用)`] = `category-weapon-${index}`;
         });
@@ -684,7 +714,6 @@
         const filterConfigs = [
             { filter: "all", text: "すべて表示" },
             { filter: "general", text: "汎用ベルト" },
-            // ★★★変更点：フィルターボタン生成には WEAPON_NAMES_FOR_CATEGORY を使用★★★
             ...WEAPON_NAMES_FOR_CATEGORY.map(name => ({ filter: name, text: `${name}用` })),
             { filter: "pending", text: "保留中のベルト" },
             { filter: "storage", text: "取り敢えず収納" }
