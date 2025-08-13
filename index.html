@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>戦神のベルト管理ツール 再修正(ver1.8.5 データ更新強化版)</title>
+  <title>戦神のベルト管理ツール 再修正(ver1.8.6 データ更新強化版)</title>
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; background-color: #f0f2f5; }
     h1 { text-align: center; color: #333; }
@@ -154,7 +154,7 @@
 
   <script>
     // === 定数定義 ===
-    const DATA_VERSION = '1.8.5'; // ★データ更新ロジックを強化
+    const DATA_VERSION = '1.8.6'; // ★手動更新機能を追加
     const SAVED_BELTS_KEY = 'savedBelts';
     const DATA_VERSION_KEY = 'savedBeltsVersion';
     const SEALED_EFFECTS_KEY = 'sealedEffects';
@@ -270,16 +270,17 @@
 
     // === ベルトデータ管理 (保存/削除/更新) ===
     function migrateSavedBelts() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const forceMigrationParam = urlParams.get('forcemigration');
+
         const storedVersion = localStorage.getItem(DATA_VERSION_KEY);
         const beltsToMigrate = getSavedBelts();
 
-        // ★データが存在し、バージョンが最新にもかかわらず王冠付き効果が一つもない場合、
-        // データが古い形式であると判断し、強制的にマイグレーションを実行する
-        const needsForceMigration = beltsToMigrate.length > 0 && 
-                                    !beltsToMigrate.some(b => b.effects.some(e => typeof e === 'string' && e.startsWith('👑')));
+        const needsForceMigrationByData = beltsToMigrate.length > 0 && 
+                                          !beltsToMigrate.some(b => b.effects.some(e => typeof e === 'string' && e.startsWith('👑')));
 
-        if (storedVersion === DATA_VERSION && !needsForceMigration) {
-            return; // バージョンもデータ形式も最新なら何もしない
+        if (storedVersion === DATA_VERSION && !needsForceMigrationByData && forceMigrationParam !== 'true') {
+            return;
         }
         
         const crownMap = new Map();
@@ -295,10 +296,8 @@
             const newEffects = b.effects.map(effect => {
                 if (typeof effect !== 'string') return effect;
                 let e = effect;
-                // ver 1.8.3 互換
                 e = e.replace(/^右手に(片手剣|短剣|スティック|扇|ハンマー|ブーメラン)用ベルト/, '$1用ベルト');
                 e = e.replace(/^(片手剣|短剣|スティック|扇|ハンマー|ブーメラン)装備時/, '右手に$1装備時');
-                // 王冠付け互換
                 return crownMap.get(e) || e;
             });
 
