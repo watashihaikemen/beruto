@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>戦神のベルト管理ツール 再修正(ver1.8.1)</title>
+  <title>戦神のベルト管理ツール 再修正(ver1.8.2)</title>
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; background-color: #f0f2f5; }
     h1 { text-align: center; color: #333; }
@@ -120,13 +120,18 @@
   <div id="toast-container"></div>
 
   <script>
-    // ★★★変更点：バージョン1.8.1に類似ベルトチェック機能を追加★★★
-    const DATA_VERSION = '1.8.1';
+    // ★★★変更点：バージョン1.8.2に更新（武器名変更）★★★
+    const DATA_VERSION = '1.8.2';
     const SAVED_BELTS_KEY = 'savedBelts';
     const DATA_VERSION_KEY = 'savedBeltsVersion';
     const SEALED_EFFECTS_KEY = 'sealedEffects';
 
-    const WEAPON_EFFECTS = { "片手剣": 18, "両手剣": 17.9, "短剣": 17.8, "スティック": 17.7, "両手杖": 17.6, "ヤリ": 17.5, "オノ": 17.4, "棍": 17.3, "ツメ": 17.2, "ムチ": 17.1, "扇": 17.0, "ハンマー": 16.9, "ブーメラン": 16.8, "弓": 16.7, "鎌": 16.6 };
+    // ★★★変更点: 効果名を変更★★★
+    const WEAPON_EFFECTS = {
+        "右手に片手剣": 18, "両手剣": 17.9, "右手に短剣": 17.8, "右手にスティック": 17.7, "両手杖": 17.6,
+        "ヤリ": 17.5, "オノ": 17.4, "棍": 17.3, "ツメ": 17.2, "ムチ": 17.1,
+        "右手に扇": 17.0, "右手にハンマー": 16.9, "右手にブーメラン": 16.8, "弓": 16.7, "鎌": 16.6
+    };
     const WEAPON_NAMES = Object.keys(WEAPON_EFFECTS);
     const ELEMENTS = ["炎", "氷", "風", "雷", "土", "闇", "光"];
     const MONSTER_TYPES = { "ドラゴン系": 16.5, "虫系": 16.4, "獣系": 16.3, "ゾンビ系": 16.2, "植物系": 16.1, "怪人系": 16.0, "悪魔系": 15.9, "エレ系": 15.8, "鳥系": 15.7, "物質系": 15.6, "スライム系": 15.5, "マシン系": 15.4, "水系": 15.3 };
@@ -139,7 +144,7 @@
 
     // === グローバル変数 ===
     let sealableGroups = [];
-    let groupKeyDataMap = new Map(); // ★変更: 類似ベルトチェック用に効果グループの情報を保持
+    let groupKeyDataMap = new Map();
     let fullOptionsFragment, categoryOptionsFragment, effectOptionsFragment;
     let currentFilter = 'all';
     let currentSortDirection = 'divine';
@@ -179,9 +184,45 @@
     function saveSealSettings() { const checkboxes = sealGroupsContainer.querySelectorAll('input[type="checkbox"]:checked'); const sealedGroups = Array.from(checkboxes).map(cb => cb.value); localStorage.setItem(SEALED_EFFECTS_KEY, JSON.stringify(sealedGroups)); sealModal.style.display = 'none'; updateAllSelectOptions(); showToast("封印設定を保存しました。"); }
 
     // === ベルトデータ管理 (保存/削除/更新) ===
-    function migrateSavedBelts() { let savedBelts = getSavedBelts(); const storedVersion = localStorage.getItem(DATA_VERSION_KEY); if (storedVersion === DATA_VERSION || savedBelts.length === 0) { localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION); return; } const migratedBelts = savedBelts.map(belt => { if (Array.isArray(belt)) { return { effects: belt, locked: false, memo: '' }; } if (typeof belt !== 'object' || belt === null) return null; if (!Array.isArray(belt.effects)) return null; return { effects: belt.effects, locked: belt.locked === true, memo: belt.memo || '' }; }).filter(Boolean); localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(migratedBelts)); localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION); console.log("ベルトデータをver " + DATA_VERSION + " に更新しました。"); }
+    function migrateSavedBelts() {
+        // ★★★ 移行処理を追加 ★★★
+        const storedVersion = localStorage.getItem(DATA_VERSION_KEY);
+        if (storedVersion !== DATA_VERSION) {
+            let savedBelts = getSavedBelts();
+            const migratedBelts = savedBelts.map(belt => {
+                let currentBelt = belt;
+                if (Array.isArray(currentBelt)) {
+                    currentBelt = { effects: currentBelt, locked: false, memo: '' };
+                }
+                if (typeof currentBelt !== 'object' || currentBelt === null || !Array.isArray(currentBelt.effects)) {
+                    return null;
+                }
 
-    // ★★★変更点: 類似ベルトチェック機能を追加★★★
+                const newEffects = currentBelt.effects.map(effect => {
+                    let newEffect = effect;
+                    newEffect = newEffect.replace(/^片手剣装備時/, '右手に片手剣装備時');
+                    newEffect = newEffect.replace(/^短剣装備時/, '右手に短剣装備時');
+                    newEffect = newEffect.replace(/^スティック装備時/, '右手にスティック装備時');
+                    newEffect = newEffect.replace(/^扇装備時/, '右手に扇装備時');
+                    newEffect = newEffect.replace(/^ハンマー装備時/, '右手にハンマー装備時');
+                    newEffect = newEffect.replace(/^ブーメラン装備時/, '右手にブーメラン装備時');
+                    return newEffect;
+                });
+
+                return {
+                    effects: newEffects,
+                    locked: currentBelt.locked === true,
+                    memo: currentBelt.memo || ''
+                };
+            }).filter(Boolean);
+
+            localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(migratedBelts));
+            localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
+            console.log("ベルトデータをver " + DATA_VERSION + " に更新しました。");
+            showToast("古い効果名を新しい効果名に更新しました。");
+        }
+    }
+
     function saveCurrentBelt() {
         const selects = container.querySelectorAll('select');
         const currentEffects = Array.from(selects).map(s => s.value);
@@ -201,7 +242,6 @@
             return;
         }
 
-        // --- 類似ベルトのチェック機能 ---
         const newBeltEffectGroups = new Set(
             currentEffects.slice(1)
                 .map(getGroupKeyForEffect)
@@ -236,17 +276,16 @@
             mostSimilar.groups.forEach(groupKey => {
                 const displayName = groupKeyDataMap.has(groupKey)
                     ? groupKeyDataMap.get(groupKey).group
-                    : groupKey; // フォールバック
+                    : groupKey;
                 message += `${displayName}\n`;
             });
             message += "\nそれでもこのベルトを保存しますか？";
 
             if (!confirm(message)) {
                 showToast("保存をキャンセルしました。");
-                return; // 保存を中断
+                return;
             }
         }
-        // --- 類似ベルトのチェック機能ここまで ---
 
         savedBelts.push(newBeltData);
         localStorage.setItem(SAVED_BELTS_KEY, JSON.stringify(savedBelts));
@@ -547,7 +586,6 @@
 
 
     // === 初期化処理 ===
-    // ★★★変更点: 類似ベルトチェックで使うため、効果グループの情報をグローバル変数に保持するよう変更★★★
     function generateSealableGroups() {
         groupKeyDataMap.clear();
 
@@ -584,7 +622,25 @@
     }
 
     function createEffectSelects() { const labels = ["カテゴリー", "効果 1", "効果 2", "効果 3", "効果 4", "効果 5"]; labels.forEach((labelText, index) => { const block = document.createElement("div"); block.className = "effect-block"; const label = document.createElement("label"); label.textContent = labelText; const searchInput = document.createElement("input"); searchInput.type = "text"; searchInput.className = "effect-search"; searchInput.placeholder = "効果を検索して絞り込み..."; const select = document.createElement("select"); select.dataset.type = index === 0 ? "category" : "effect"; select.addEventListener("change", updateAndSort); searchInput.addEventListener("input", updateAndSort); block.appendChild(label); block.appendChild(searchInput); block.appendChild(select); container.appendChild(block); }); rebuildOptionFragments(); const selects = document.querySelectorAll("#effectsContainer select"); selects.forEach(select => { const sourceFragment = select.dataset.type === "category" ? categoryOptionsFragment : effectOptionsFragment; select.appendChild(sourceFragment.cloneNode(true)); }); }
-    function createFilterButtons() { filterButtonGroup.innerHTML = ""; const filterConfigs = [ { filter: "all", text: "すべて表示" }, { filter: "general", text: "汎用ベルト" }, ...WEAPON_NAMES.map(name => ({ filter: name, text: `${name}用` })), { filter: "pending", text: "保留中のベルト" }, { filter: "storage", text: "取り敢えず収納" } ]; filterConfigs.forEach(({ filter, text }) => { const button = document.createElement("button"); button.dataset.filter = filter; button.textContent = text; button.addEventListener("click", () => { currentFilter = button.dataset.filter; updateDisplay(); }); filterButtonGroup.appendChild(button); }); }
+    // ★★★変更点: フィルターボタンのテキストも新しい武器名に更新★★★
+    function createFilterButtons() {
+        filterButtonGroup.innerHTML = "";
+        const filterConfigs = [
+            { filter: "all", text: "すべて表示" },
+            { filter: "general", text: "汎用ベルト" },
+            ...WEAPON_NAMES.map(name => ({ filter: name, text: `${name}用` })), // WEAPON_NAMESが更新されているので自動的に対応
+            { filter: "pending", text: "保留中のベルト" },
+            { filter: "storage", text: "取り敢えず収納" }
+        ];
+        filterConfigs.forEach(({ filter, text }) => {
+            const button = document.createElement("button");
+            button.dataset.filter = filter;
+            button.textContent = text;
+            button.addEventListener("click", () => { currentFilter = button.dataset.filter; updateDisplay(); });
+            filterButtonGroup.appendChild(button);
+        });
+    }
+
 
     document.addEventListener('DOMContentLoaded', () => {
         migrateSavedBelts();
