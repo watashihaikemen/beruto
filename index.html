@@ -55,6 +55,30 @@
     }
     /* ★★★変更点ここまで★★★ */
 
+    /* ★★★追加：理論値・準理論値ベルトの豪華なスタイル★★★ */
+    .belt-theoretical {
+        background: linear-gradient(145deg, #fffde7 10%, #fceabb 100%);
+        border: 2px solid #fbc02d;
+        box-shadow: 0 0 15px rgba(251, 192, 45, 0.6), 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .belt-theoretical:hover {
+        background: linear-gradient(145deg, #fffde7 10%, #fceabb 100%);
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 0 25px rgba(251, 192, 45, 0.8), 0 6px 16px rgba(0,0,0,0.2);
+    }
+
+    .belt-near-theoretical {
+        background: linear-gradient(145deg, #f5f5f5 10%, #e0e0e0 100%);
+        border: 2px solid #bdbdbd;
+        box-shadow: 0 0 10px rgba(158, 158, 158, 0.5), 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .belt-near-theoretical:hover {
+        background: linear-gradient(145deg, #f5f5f5 10%, #e0e0e0 100%);
+        transform: translateY(-4px) scale(1.01);
+        box-shadow: 0 0 18px rgba(158, 158, 158, 0.7), 0 6px 16px rgba(0,0,0,0.15);
+    }
+    /* ★★★追加ここまで★★★ */
+
     .saved-belt-actions { display: flex; flex-direction: column; flex-shrink: 0; margin-left: 10px; gap: 5px; }
     .saved-belt-actions-upper { display: flex; gap: 5px; }
     .saved-belt-actions button { color: white; border: none; padding: 5px 8px; font-size: 12px; border-radius: 3px; cursor: pointer; }
@@ -334,7 +358,7 @@
     function toggleLockState(effectsToToggle) { let savedBelts = getSavedBelts(); const effectsToToggleStr = JSON.stringify(effectsToToggle); const beltToToggle = savedBelts.find(belt => JSON.stringify(belt.effects) === effectsToToggleStr); if (beltToToggle) { beltToToggle.locked = !beltToToggle.locked; saveBelts(savedBelts); showToast(beltToToggle.locked ? "ベルトをロックしました。" : "ベルトのロックを解除しました。"); updateDisplay(); } }
 
     // === 表示関連 ===
-    // ★★★変更点：王冠表示のためにHTML生成ロジックを全面的に修正★★★
+    // ★★★変更点：理論値・準理論値のスタイルを適用するようにロジックを修正★★★
     function renderSavedBelts(beltsToRender) {
         savedBeltsList.innerHTML = '';
         const totalSavedCount = getSavedBelts().length;
@@ -357,6 +381,25 @@
             beltItem.className = 'saved-belt-item';
             beltItem.classList.add(categoryClassMap.get(effects[0]) || 'category-default');
             beltItem.dataset.effectsJson = JSON.stringify(effects);
+
+            // ★★★追加：理論値・準理論値の判定とクラス付与★★★
+            let crownCount = 0;
+            const validEffects = effects.slice(1).filter(e => e !== '効果なし');
+            const validEffectCount = validEffects.length;
+
+            validEffects.forEach(effect => {
+                const groupKey = getGroupKeyForEffect(effect);
+                if (groupKey && maxEffectInGroupMap.get(groupKey) === effect) {
+                    crownCount++;
+                }
+            });
+
+            if (validEffectCount > 0 && crownCount === validEffectCount) {
+                beltItem.classList.add('belt-theoretical');
+            } else if (crownCount === 4) {
+                beltItem.classList.add('belt-near-theoretical');
+            }
+            // ★★★追加ここまで★★★
 
             const effectsHtml = effects.filter(e => e !== '効果なし').map(effect => {
                 const groupKey = getGroupKeyForEffect(effect);
